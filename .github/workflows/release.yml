@@ -11,10 +11,34 @@ on:
         required: false
         default: false
         type: boolean
+      publish_marketplace:
+        description: "Publish the VS Code extension to the marketplace"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm build
+      - run: pnpm test
+
+  package_extension:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,12 +49,15 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
-      - run: pnpm build
-      - run: pnpm test
+      - run: pnpm --filter pixelmate-runtime-vscode package:vsix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pixelmate-runtime-vscode-vsix
+          path: apps/runtime-vscode/*.vsix
 
   github_release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: validate
+    needs: package_extension
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -40,10 +67,32 @@ jobs:
         shell: bash
         run: test -f RELEASE_NOTES.md
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: RELEASE_NOTES.md
           generate_release_notes: true
+          files: |
+            apps/runtime-vscode/*.vsix
+
+  marketplace_publish:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_marketplace == 'true'
+    needs: package_extension
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm --filter pixelmate-runtime-vscode publish:vsce
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
   npm_release:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_npm == 'true'
@@ -56,7 +105,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm

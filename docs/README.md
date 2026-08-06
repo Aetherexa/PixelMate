@@ -6,6 +6,12 @@
 - Architecture diagram: ./ARCHITECTURE_DIAGRAM.md
 - Developer journey: ./DEVELOPER_JOURNEY.md
 - FAQ: ./FAQ.md
+- Reference companion guide: ./reference-companion/REFERENCE_COMPANION_GUIDE.md
+- Companion API: ./reference-companion/COMPANION_API.md
+- Companion lifecycle diagram: ./reference-companion/LIFECYCLE_DIAGRAM.md
+- Companion behavior diagram: ./reference-companion/BEHAVIOR_DIAGRAM.md
+- Companion customization guide: ./reference-companion/CUSTOMIZATION_GUIDE.md
+- Companion developer guide: ./reference-companion/DEVELOPER_GUIDE.md
 - Contribution guide: ../CONTRIBUTING.md
 - Roadmap: ../ROADMAP.md
 - Security policy: ../SECURITY.md
