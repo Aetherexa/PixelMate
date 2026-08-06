@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">PixelMate Public Alpha</title>
+  <desc id="desc">PixelMate v0.1.0-alpha, plugin-first platform for delightful developer companions.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0E2439"/>
+      <stop offset="100%" stop-color="#15616D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <circle cx="1090" cy="120" r="180" fill="#FF7D00" opacity="0.2"/>
+  <circle cx="220" cy="540" r="220" fill="#00B4D8" opacity="0.25"/>
+  <text x="90" y="210" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="68" font-weight="700">PixelMate</text>
+  <text x="90" y="282" fill="#D8F3FF" font-family="Segoe UI, Arial, sans-serif" font-size="40" font-weight="600">Public Release v0.1.0-alpha</text>
+  <text x="90" y="348" fill="#F1FAFF" font-family="Segoe UI, Arial, sans-serif" font-size="30">Plugin-first platform for delightful developer companions.</text>
+  <rect x="90" y="420" width="460" height="76" rx="12" fill="#FF7D00"/>
+  <text x="124" y="469" fill="#0E2439" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="700">Foundation Certified v1.0</text>
+</svg>

@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run PixelMate Runtime",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/apps/runtime-vscode"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/apps/runtime-vscode/dist/**/*.js"
+      ],
+      "preLaunchTask": "Build"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "name": "pixelmate-runtime-vscode",
+  "displayName": "PixelMate Runtime",
+  "description": "PixelMate runtime host for Visual Studio Code.",
+  "version": "0.1.0-alpha",
+  "publisher": "aetherexa",
+  "preview": true,
+  "license": "MIT",
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#0B1F2A",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aetherexa/pixelmate.git",
+    "directory": "apps/runtime-vscode"
+  },
+  "homepage": "https://github.com/aetherexa/pixelmate",
+  "bugs": {
+    "url": "https://github.com/aetherexa/pixelmate/issues"
+  },
+  "type": "module",
+  "main": "./dist/extension.js",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "pixelmate",
+    "pixelmate-runtime",
+    "developer-companion",
+    "runtime",
+    "engine",
+    "foundation",
+    "tooling",
+    "workspace"
+  ],
+  "qna": "https://github.com/aetherexa/pixelmate/discussions",
+  "badges": [
+    {
+      "url": "https://img.shields.io/badge/release-v0.1.0--alpha-0A6EBD",
+      "href": "https://github.com/aetherexa/pixelmate/releases",
+      "description": "Public alpha release"
+    },
+    {
+      "url": "https://img.shields.io/badge/foundation-certified%20v1.0-FF7A00",
+      "href": "https://github.com/aetherexa/pixelmate/blob/main/FOUNDATION_CERTIFICATE.md",
+      "description": "Aetherexa Foundation certification"
+    }
+  ],
+  "activationEvents": [
+    "onCommand:pixelmate.alive"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "pixelmate.alive",
+        "title": "PixelMate: Alive Check"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "vscode:prepublish": "pnpm run build",
+    "package:vsix": "vsce package --no-dependencies",
+    "publish:vsce": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.94.0",
+    "@vscode/vsce": "^2.31.1"
+  }
+}

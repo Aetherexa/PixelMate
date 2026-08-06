@@ -1,0 +1,55 @@
+foundation:
+  name: Aetherexa Foundation Compliance Profile
+  version: 1.0
+  project: PixelMate
+  assessmentDate: "2026-08-06"
+  assessors:
+    - Aetherexa Foundation Compliance Board
+  certification:
+    target: Foundation Certified v1.0
+    status: certified
+    score: 96
+    criticalFailures: 0
+  publicRelease:
+    version: v0.1.0-alpha
+    date: "2026-08-06"
+    readiness: approved
+    notesFile: RELEASE_NOTES.md
+  repository:
+    language: TypeScript
+    packageManager: pnpm
+    workspace: turbo
+  standards:
+    requiredPaths:
+      - .github/
+      - docs/
+      - architecture/
+      - adrs/
+      - rfcs/
+      - meetings/
+      - roadmap/
+      - packages/
+      - apps/
+      - tooling/
+      - examples/
+      - scripts/
+      - assets/
+    requiredFiles:
+      - README.md
+      - LICENSE
+      - CODE_OF_CONDUCT.md
+      - CONTRIBUTING.md
+      - SECURITY.md
+      - ROADMAP.md
+      - CHANGELOG.md
+      - foundation.yaml
+  qualityGates:
+    ci: enabled
+    lint: enabled
+    typecheck: enabled
+    tests: enabled
+    codeql: enabled
+    dependabot: enabled
+  notes:
+    - Migration performed with stability-first policy.
+    - No public API changes were made.

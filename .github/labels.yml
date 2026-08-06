@@ -1,0 +1,45 @@
+- name: type:bug
+  color: d73a4a
+  description: Something is not working
+- name: type:feature
+  color: 1d76db
+  description: New capability request
+- name: type:docs
+  color: 0e8a16
+  description: Documentation changes
+- name: type:security
+  color: b60205
+  description: Security-related work
+- name: type:quality
+  color: 5319e7
+  description: Quality and reliability work
+- name: type:automation
+  color: fbca04
+  description: CI/CD and automation changes
+- name: area:runtime-vscode
+  color: 0052cc
+  description: Runtime VS Code host area
+- name: area:engine
+  color: 0366d6
+  description: Engine and package architecture area
+- name: status:triage
+  color: c2e0c6
+  description: Needs initial triage
+- name: status:ready
+  color: 0e8a16
+  description: Ready for implementation
+- name: status:blocked
+  color: e11d21
+  description: Blocked by dependency or decision
+- name: priority:p0
+  color: b60205
+  description: Critical urgency
+- name: priority:p1
+  color: d93f0b
+  description: High urgency
+- name: priority:p2
+  color: fbca04
+  description: Medium urgency
+- name: priority:p3
+  color: 0e8a16
+  description: Low urgency
