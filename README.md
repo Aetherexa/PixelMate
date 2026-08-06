@@ -23,13 +23,16 @@ Enable a thriving ecosystem of companion experiences across tools and workflows,
 PixelMate uses a monorepo with clear package boundaries and clean dependency direction.
 
 - Runtime host lives in `apps/runtime-vscode`.
+- Reference companion lives in `companions/pixelmate-core`.
 - Platform modules live in `packages/*`.
 - Governance and design records live in `docs`, `adrs`, and `rfcs`.
 
 Read:
+
 - `ARCHITECTURE.md`
 - `ARCHITECTURE_INDEX.md`
 - `docs/ARCHITECTURE_DIAGRAM.md`
+- `docs/reference-companion/REFERENCE_COMPANION_GUIDE.md`
 
 ## Plugin-First Philosophy
 
@@ -50,6 +53,7 @@ See `ROADMAP.md` for details.
 ## Repository Structure
 
 - `apps/`: runtime applications
+- `companions/`: canonical companion implementations
 - `packages/`: reusable platform modules
 - `tooling/`: shared scripts and quality configuration
 - `docs/`: architecture and product-facing documentation
@@ -62,6 +66,7 @@ See `ROADMAP.md` for details.
 ## Development
 
 Prerequisites:
+
 - Node.js 20+
 - pnpm 9+
 

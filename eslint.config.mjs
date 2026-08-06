@@ -8,6 +8,8 @@ export default [
       "**/coverage/**",
       "**/.turbo/**",
       "**/*.d.ts",
+      "**/vitest.config.ts",
+      "**/vitest.workspace.ts",
       "**/*.js",
       "node_modules/**"
     ]

@@ -2,9 +2,9 @@
   "name": "pixelmate-runtime-vscode",
   "displayName": "PixelMate Runtime",
   "description": "PixelMate runtime host for Visual Studio Code.",
-  "version": "0.1.0-alpha",
+  "version": "1.0.0",
   "publisher": "aetherexa",
-  "preview": true,
+  "preview": false,
   "license": "MIT",
   "icon": "assets/icon.png",
   "galleryBanner": {
@@ -53,30 +53,164 @@
     }
   ],
   "activationEvents": [
-    "onCommand:pixelmate.alive"
+    "onCommand:pixelmate.alive",
+    "onCommand:pixelmate.showCompanion",
+    "onStartupFinished"
   ],
   "contributes": {
     "commands": [
       {
         "command": "pixelmate.alive",
         "title": "PixelMate: Alive Check"
+      },
+      {
+        "command": "pixelmate.showCompanion",
+        "title": "PixelMate: Show Reference Companion"
+      },
+      {
+        "command": "pixelmate.demoMode",
+        "title": "PixelMate: Demo Mode"
+      },
+      {
+        "command": "pixelmate.screenshotMode",
+        "title": "PixelMate: Screenshot Mode"
+      },
+      {
+        "command": "pixelmate.designMode",
+        "title": "PixelMate: Design Mode"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "PixelMate Companion",
+      "properties": {
+        "pixelmate.companion.scale": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.5,
+          "maximum": 2,
+          "description": "Companion scale factor."
+        },
+        "pixelmate.companion.speed": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.5,
+          "maximum": 3,
+          "description": "Base animation speed multiplier."
+        },
+        "pixelmate.companion.movementSpeed": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.5,
+          "maximum": 3,
+          "description": "Movement velocity multiplier for locomotion behaviors."
+        },
+        "pixelmate.companion.positionX": {
+          "type": "number",
+          "default": 0.85,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Horizontal position ratio inside the companion stage."
+        },
+        "pixelmate.companion.positionY": {
+          "type": "number",
+          "default": 0.85,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Vertical position ratio inside the companion stage."
+        },
+        "pixelmate.companion.theme": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "ocean",
+            "sunrise"
+          ],
+          "description": "Companion theme palette."
+        },
+        "pixelmate.companion.animationFrequency": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.5,
+          "maximum": 3,
+          "description": "Animation frequency multiplier."
+        },
+        "pixelmate.companion.idleBehavior": {
+          "type": "string",
+          "default": "observe",
+          "enum": [
+            "idle",
+            "observe"
+          ],
+          "description": "Primary idle behavior pattern."
+        },
+        "pixelmate.companion.personality": {
+          "type": "string",
+          "default": "calm",
+          "enum": [
+            "calm",
+            "curious",
+            "playful",
+            "focused",
+            "cheerful"
+          ],
+          "description": "Companion personality profile that adjusts intent and reaction weighting."
+        },
+        "pixelmate.companion.behaviorIntensity": {
+          "type": "number",
+          "default": 0.55,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How active and expressive the companion should be."
+        },
+        "pixelmate.companion.accessibilityMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable accessibility-friendly behavior defaults."
+        },
+        "pixelmate.companion.focusMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Minimize companion activity while editor is focused."
+        },
+        "pixelmate.companion.reduceMotion": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reduce animation movement while preserving state transitions."
+        },
+        "pixelmate.companion.debugMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show live diagnostic overlay with state, intent, needs, and performance metrics."
+        }
+      }
+    }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rimraf dist .turbo coverage",
+    "build": "node esbuild.mjs",
+    "build:prod": "node esbuild.mjs --production",
+    "watch": "node esbuild.mjs --watch",
+    "dev": "pnpm run watch",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "vscode:prepublish": "pnpm run build",
+    "vscode:prepublish": "pnpm run build:prod",
     "package:vsix": "vsce package --no-dependencies",
     "publish:vsce": "vsce publish"
   },
   "devDependencies": {
     "@types/vscode": "^1.94.0",
-    "@vscode/vsce": "^2.31.1"
+    "@vscode/vsce": "^2.31.1",
+    "esbuild": "^0.28.1",
+    "rimraf": "^6.0.1"
+  },
+  "dependencies": {
+    "@aetherexa/animation": "workspace:*",
+    "@aetherexa/asset-loader": "workspace:*",
+    "@aetherexa/pixelmate-core": "workspace:*",
+    "@aetherexa/renderer": "workspace:*"
   }
 }
