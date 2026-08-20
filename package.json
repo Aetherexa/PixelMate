@@ -24,7 +24,7 @@
     "extension:package": "pnpm --filter pixelmate-runtime-vscode package:vsix"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.8",
+    "@changesets/cli": "^3.0.0",
     "@commitlint/cli": "^19.5.0",
     "@commitlint/config-conventional": "^19.5.0",
     "@eslint/js": "^9.10.0",
