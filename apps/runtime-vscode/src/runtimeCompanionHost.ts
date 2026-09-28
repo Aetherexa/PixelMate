@@ -364,7 +364,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
       const deltaMs = now - this.lastTickAt;
       this.lastTickAt = now;
 
-      if (now - this.lastActivityAt >= IDLE_THRESHOLD_MS) {
+      if (this.kernel.getSettings().autoSleep && now - this.lastActivityAt >= IDLE_THRESHOLD_MS) {
         this.kernel.handleEvent({ type: "idleTimeout", at: now });
         this.kernel.handleEvent({ type: "cursorIdle", at: now });
       }
@@ -406,6 +406,10 @@ export class RuntimeCompanionHost implements vscode.Disposable {
     const config = vscode.workspace.getConfiguration(CONFIG_ROOT);
 
     const nextSettings: Partial<CompanionSettings> = {
+      companionType: config.get<CompanionSettings["companionType"]>(
+        "type",
+        DEFAULT_SETTINGS.companionType
+      ),
       scale: config.get<number>("scale", DEFAULT_SETTINGS.scale),
       speed: config.get<number>("speed", DEFAULT_SETTINGS.speed),
       movementSpeed: config.get<number>("movementSpeed", DEFAULT_SETTINGS.movementSpeed),
@@ -433,7 +437,9 @@ export class RuntimeCompanionHost implements vscode.Disposable {
       ),
       focusMode: config.get<boolean>("focusMode", DEFAULT_SETTINGS.focusMode),
       reduceMotion: config.get<boolean>("reduceMotion", DEFAULT_SETTINGS.reduceMotion),
-      debugMode: config.get<boolean>("debugMode", DEFAULT_SETTINGS.debugMode)
+      debugMode: config.get<boolean>("debugMode", DEFAULT_SETTINGS.debugMode),
+      speechEnabled: config.get<boolean>("speechEnabled", DEFAULT_SETTINGS.speechEnabled),
+      autoSleep: config.get<boolean>("autoSleep", DEFAULT_SETTINGS.autoSleep)
     };
 
     this.kernel.updateSettings(nextSettings);
@@ -723,19 +729,55 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         position: absolute;
         width: 120px;
         height: 120px;
-        border-radius: 22px;
-        background: linear-gradient(145deg, #1b4965, #00b4d8);
         display: grid;
         place-items: center;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-        transition: transform 160ms ease;
+        transition: left 500ms ease, top 500ms ease, transform 160ms ease;
+        transform-origin: 50% 80%;
+        user-select: none;
       }
       .sprite {
-        font-weight: 700;
-        letter-spacing: 0.04em;
+        font-size: 72px;
+        line-height: 1;
+        filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.28));
+        transform-origin: 50% 75%;
+      }
+      .speech {
+        position: absolute;
+        left: 50%;
+        bottom: 106px;
+        transform: translateX(-50%) translateY(4px);
+        max-width: 180px;
+        padding: 7px 10px;
+        border-radius: 12px 12px 12px 3px;
+        background: rgba(255,255,255,.96);
+        color: #13212a;
         font-size: 12px;
-        color: #022b3a;
-        text-transform: uppercase;
+        font-weight: 600;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+      .speech.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .behavior-wave .sprite { animation: pm-wave .8s ease-in-out 2; }
+      .behavior-celebrate .sprite, .behavior-smile .sprite { animation: pm-celebrate .65s ease-in-out 2; }
+      .behavior-hop .sprite, .behavior-tinyBounce .sprite { animation: pm-hop .55s ease-in-out 2; }
+      .behavior-walk .sprite { animation: pm-walk .7s ease-in-out infinite; }
+      .behavior-sleep .sprite, .behavior-breathing .sprite { animation: pm-breathe 2.3s ease-in-out infinite; opacity: .82; }
+      .behavior-blink .sprite, .behavior-doubleBlink .sprite { animation: pm-blink .35s ease-in-out; }
+      .behavior-think .sprite, .behavior-observe .sprite { animation: pm-think 1.8s ease-in-out infinite; }
+      .behavior-stretch .sprite { animation: pm-stretch .8s ease-in-out; }
+      @keyframes pm-wave { 0%,100%{transform:rotate(0)} 35%{transform:rotate(-12deg)} 70%{transform:rotate(10deg)} }
+      @keyframes pm-celebrate { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-14px) scale(1.08)} }
+      @keyframes pm-hop { 0%,100%{transform:translateY(0)} 45%{transform:translateY(-18px)} }
+      @keyframes pm-walk { 0%,100%{transform:translateX(-7px) rotate(-3deg)} 50%{transform:translateX(7px) rotate(3deg)} }
+      @keyframes pm-breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.045)} }
+      @keyframes pm-blink { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(.72)} }
+      @keyframes pm-think { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+      @keyframes pm-stretch { 0%,100%{transform:scale(1)} 50%{transform:scaleX(1.12) scaleY(.9)} }
+      @media (prefers-reduced-motion: reduce) {
+        .sprite { animation: none !important; }
+        .companion { transition: none; }
       }
       .hud {
         position: absolute;
@@ -808,12 +850,26 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         <button id="exportButton">Export JSON</button>
       </div>
       <div id="companion" class="companion">
-        <div id="sprite" class="sprite">idle-1</div>
+        <div id="speech" class="speech"></div>
+        <div id="sprite" class="sprite" aria-label="PixelMate">🙂</div>
       </div>
     </div>
     <script>
       const companion = document.getElementById("companion");
       const sprite = document.getElementById("sprite");
+      const speech = document.getElementById("speech");
+      const companionGlyphs = { smiley: "🙂", cat: "🐱", dog: "🐶", horse: "🐴" };
+      const phrases = {
+        celebrate: ["Nice work!", "Great job!", "Ship it! ✨"],
+        think: ["Interesting…", "Thinking with you."],
+        sleep: ["Zzz…"],
+        wake: ["Welcome back!", "Ready?"],
+        wave: ["Hi! 👋", "Hey there!"],
+        default: ["Looking good.", "You’ve got this.", "Hydrate 💧"]
+      };
+      let greeted = false;
+      let lastSpeechAt = 0;
+      let speechTimer;
       const intent = document.getElementById("intent");
       const behavior = document.getElementById("behavior");
       const lifecycle = document.getElementById("lifecycle");
@@ -845,7 +901,9 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         }
 
         const { snapshot, settings, renderFrame, mode: runtimeMode, theme: runtimeTheme, personality: runtimePersonality, debug } = event.data.payload;
-        sprite.textContent = renderFrame.label;
+        sprite.textContent = companionGlyphs[settings.companionType] ?? companionGlyphs.smiley;
+        companion.className = "companion behavior-" + snapshot.behavior;
+        sprite.setAttribute("aria-label", "PixelMate " + settings.companionType);
         intent.textContent = "Intent: " + snapshot.intent;
         behavior.textContent = "Behavior: " + snapshot.behavior;
         lifecycle.textContent = "Lifecycle: " + snapshot.lifecycle;
@@ -860,10 +918,10 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         needs.style.display = showDebug ? "block" : "none";
         perf.style.display = showDebug ? "block" : "none";
         events.style.display = showDebug ? "block" : "none";
-        if (hud) hud.style.display = runtimeMode === "screenshot" ? "none" : "block";
+        if (hud) hud.style.display = showDebug && runtimeMode !== "screenshot" ? "block" : "none";
         if (debugPanel) debugPanel.style.display = runtimeMode === "design" ? "block" : "none";
         if (stage) stage.style.background = runtimeMode === "screenshot" ? "transparent" : "";
-        if (companion) companion.style.boxShadow = runtimeMode === "screenshot" ? "none" : "0 10px 30px rgba(0, 0, 0, 0.35)";
+        if (companion) companion.style.boxShadow = "none";
         document.body.style.background = runtimeMode === "screenshot" ? "transparent" : "";
         mode.textContent = "Mode: " + runtimeMode;
         queue.textContent = "Queue: " + (timelineEntries.length || 0);
@@ -881,10 +939,34 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         companion.style.transform = renderFrame.transform + rotate + bob;
         companion.style.opacity = renderFrame.opacity;
 
+        if (settings.reduceMotion) {
+          sprite.style.animation = "none";
+        } else {
+          sprite.style.animation = "";
+        }
+
+        const now = Date.now();
+        const say = (text) => {
+          if (!speech || !settings.speechEnabled || runtimeMode === "screenshot") return;
+          speech.textContent = text;
+          speech.classList.add("visible");
+          clearTimeout(speechTimer);
+          speechTimer = setTimeout(() => speech.classList.remove("visible"), 2400);
+          lastSpeechAt = now;
+        };
+
+        if (!greeted && settings.speechEnabled) {
+          greeted = true;
+          say("Hi! I’m PixelMate 👋");
+        } else if (settings.speechEnabled && now - lastSpeechAt > 90000 && Math.random() < 0.035) {
+          const pool = phrases[snapshot.behavior] ?? phrases.default;
+          say(pool[Math.floor(Math.random() * pool.length)]);
+        }
+
         const selected = themes[settings.theme] ?? themes.default;
         document.documentElement.style.setProperty("--bg", selected.bg);
         document.documentElement.style.setProperty("--accent", selected.accent);
-        companion.style.background = renderFrame.background;
+        companion.style.background = "transparent";
       });
 
       window.addEventListener("message", (event) => {
