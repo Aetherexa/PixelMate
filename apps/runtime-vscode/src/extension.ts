@@ -5,6 +5,7 @@ import {
   PIXELMATE_DEMO_MODE_COMMAND,
   PIXELMATE_DESIGN_MODE_COMMAND,
   PIXELMATE_SCREENSHOT_MODE_COMMAND,
+  PIXELMATE_SELECT_COMPANION_COMMAND,
   PIXELMATE_SHOW_COMPANION_COMMAND
 } from "./constants.js";
 import { RuntimeCompanionHost } from "./runtimeCompanionHost.js";
@@ -51,12 +52,37 @@ export function activate(context: vscode.ExtensionContext): void {
     host?.setMode("design");
   });
 
+  const selectCompanionCommand = vscode.commands.registerCommand(
+    PIXELMATE_SELECT_COMPANION_COMMAND,
+    async () => {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: "🙂 Smiley", value: "smiley" },
+          { label: "🐱 Cat", value: "cat" },
+          { label: "🐶 Dog", value: "dog" },
+          { label: "🐴 Horse", value: "horse" }
+        ],
+        { placeHolder: "Choose your PixelMate companion" }
+      );
+
+      if (choice === undefined) {
+        return;
+      }
+
+      await vscode.workspace
+        .getConfiguration("pixelmate.companion")
+        .update("type", choice.value, vscode.ConfigurationTarget.Global);
+      host?.show();
+    }
+  );
+
   context.subscriptions.push(
     aliveCommand,
     showCompanionCommand,
     demoModeCommand,
     screenshotModeCommand,
     designModeCommand,
+    selectCompanionCommand,
     host
   );
 }
