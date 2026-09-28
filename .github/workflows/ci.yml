@@ -50,6 +50,8 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build workspace dependencies
+        run: pnpm build
       - name: Package extension
         run: pnpm extension:package
       - name: Upload VSIX artifact

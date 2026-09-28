@@ -48,9 +48,9 @@
   "qna": "https://github.com/aetherexa/pixelmate/discussions",
   "badges": [
     {
-      "url": "https://img.shields.io/badge/release-v0.1.0--alpha-0A6EBD",
+      "url": "https://img.shields.io/badge/release-v1.0.0-0A6EBD",
       "href": "https://github.com/aetherexa/pixelmate/releases",
-      "description": "Public alpha release"
+      "description": "PixelMate v1.0.0"
     },
     {
       "url": "https://img.shields.io/badge/foundation-certified%20v1.0-FF7A00",
