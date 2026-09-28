@@ -1,23 +1,28 @@
-# Roadmap
+# PixelMate Roadmap
 
-## Sprint 1: Foundation
-- Monorepo baseline
-- Runtime VS Code activation and command
-- Core package scaffolding
-- CI, linting, testing, release automation
+## v1 — Companion polish
 
-## Sprint 2: Engine Contracts
-- Stable domain interfaces
-- Plugin host contracts
-- Event bus contracts
-- Storage abstraction contracts
+- [x] VS Code runtime host
+- [x] message bus and runtime protocol
+- [x] behavior/state engine
+- [x] animation and asset package boundaries
+- [x] esbuild-based VSIX packaging
+- [x] Smiley, Cat, Dog and Horse built-in companions
+- [x] clean normal mode without frame/debug labels
+- [x] typing, focus, diagnostics, task and idle reactions
+- [x] speech bubbles
+- [x] reduced-motion support
+- [x] Demo, Design and Screenshot modes
+- [x] companion picker and user settings
+- [x] product/architecture/release documentation
 
-## Sprint 3: SDK and Tooling
-- Plugin SDK package
-- CLI bootstrap and validation
-- Example plugin templates
+## v1 release gate
 
-## Sprint 4: Ecosystem
-- Character pack specification tools
-- Marketplace preparation
-- Contribution scaling and governance
+- [ ] CI green on release branch
+- [ ] fresh-profile VSIX smoke test
+- [ ] Marketplace screenshots/GIFs
+- [ ] release notes and tag
+
+## After v1
+
+Future work may include richer handcrafted sprite packs, SDK ergonomics, companion authoring tools and additional host integrations. These are intentionally outside the v1 release scope.

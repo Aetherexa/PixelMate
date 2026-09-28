@@ -39,7 +39,7 @@ export class AnimationPlayer {
     const stepCount = Math.floor(deltaMs / frameDurationMs);
     if (stepCount > 0) {
       this.frameIndex = (this.frameIndex + stepCount) % this.clip.frames.length;
-      if (this.frameIndex === 0 && stepCount > 0) {
+      if (this.frameIndex === 0) {
         this.loopCount += 1;
       }
     }
@@ -47,7 +47,7 @@ export class AnimationPlayer {
     this.elapsedMs = deltaMs % frameDurationMs;
 
     return {
-      frame: this.clip.frames[this.frameIndex] ?? this.clip.frames[0] ?? "",
+      frame: this.clip.frames[this.frameIndex]!,
       frameIndex: this.frameIndex,
       elapsedMs: this.elapsedMs,
       loopCount: this.loopCount

@@ -1,46 +1,47 @@
-# Architecture Guide
+# PixelMate Architecture
 
-PixelMate Engine follows Clean Architecture and Domain-Driven principles.
-
-## High-Level Design
+PixelMate separates VS Code integration from reusable companion behavior.
 
 ```mermaid
 flowchart LR
-  RH[Runtime Host] --> E[PixelMate Engine Core]
-  E --> PH[Plugin Host]
-  PH --> P1[Built-in Plugins]
-  PH --> P2[Future Plugins]
-  E --> EB[Typed Event Bus]
-  E --> SS[Subsystem Contracts]
-  SS --> INF[Default Infrastructure Adapters]
+  VS[VS Code APIs] --> RH[RuntimeCompanionHost]
+  RH --> K[PixelMate Companion Kernel]
+  RH --> MB[Runtime Message Bus]
+  K --> B[Behavior / Needs / Memory]
+  K --> A[Animation State]
+  RH --> AL[Asset Loader]
+  RH --> R[Renderer]
+  R --> WV[Webview]
+  MB --> WV
 ```
 
-## Dependency Rule
+## Runtime host
 
-- Contracts define boundaries.
-- Core orchestrates use cases.
-- Infrastructure implements contracts.
-- Runtime hosts consume only the public engine API.
+`apps/runtime-vscode` owns VS Code lifecycle, commands, configuration, editor/task/diagnostic observation, webview lifecycle and message routing.
 
-## Event-Driven Communication
+## Companion kernel
 
-Subsystems and plugins communicate through `EventBus<EngineEventMap>`.
+`companions/pixelmate-core` owns lifecycle state, needs, memory, intent, behavior selection, personality and persistence contracts. It must not depend on VS Code APIs.
 
-## Replaceability
+## Presentation packages
 
-Each subsystem can be replaced by overriding concrete implementations in composition.
+`@aetherexa/animation` advances animation frames. `@aetherexa/asset-loader` owns asset manifests. `@aetherexa/renderer` converts state into presentation descriptors. The webview performs final host-specific rendering.
 
-## Startup Sequence
+## Event flow
 
-```mermaid
-sequenceDiagram
-  participant Host as Runtime Host
-  participant Factory as Engine Factory
-  participant Core as Engine Core
-  participant PH as Plugin Host
-  Host->>Factory: createPixelMateEngine()
-  Factory->>Core: instantiate core + deps
-  Host->>Core: start()
-  Core->>PH: register built-in plugins
-  PH-->>Core: PluginLoaded events
-```
+1. VS Code emits activity.
+2. Runtime translates it into a companion event.
+3. Kernel updates needs, intent and behavior.
+4. Runtime ticks animation/rendering.
+5. Snapshot is posted to the webview.
+6. The webview presents the selected companion and optional speech/debug UI.
+
+## Design constraints
+
+- preserve clean dependency direction
+- keep host-specific code out of core packages
+- no runtime network dependency for v1
+- hide debug internals in normal mode
+- respect reduced motion
+- dispose timers/listeners with the extension
+- future sprite assets should integrate through existing loader/renderer boundaries rather than a core rewrite

@@ -1,7 +1,7 @@
 {
   "name": "pixelmate-runtime-vscode",
-  "displayName": "PixelMate Runtime",
-  "description": "PixelMate runtime host for Visual Studio Code.",
+  "displayName": "PixelMate — Coding Companion",
+  "description": "A delightful lightweight coding companion for Visual Studio Code.",
   "version": "1.0.0",
   "publisher": "aetherexa",
   "preview": false,
@@ -37,7 +37,13 @@
     "engine",
     "foundation",
     "tooling",
-    "workspace"
+    "workspace",
+    "coding-companion",
+    "pet",
+    "cat",
+    "dog",
+    "horse",
+    "productivity"
   ],
   "qna": "https://github.com/aetherexa/pixelmate/discussions",
   "badges": [
@@ -55,7 +61,11 @@
   "activationEvents": [
     "onCommand:pixelmate.alive",
     "onCommand:pixelmate.showCompanion",
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:pixelmate.demoMode",
+    "onCommand:pixelmate.screenshotMode",
+    "onCommand:pixelmate.designMode",
+    "onCommand:pixelmate.selectCompanion"
   ],
   "contributes": {
     "commands": [
@@ -78,6 +88,10 @@
       {
         "command": "pixelmate.designMode",
         "title": "PixelMate: Design Mode"
+      },
+      {
+        "command": "pixelmate.selectCompanion",
+        "title": "PixelMate: Choose Companion"
       }
     ],
     "configuration": {
@@ -182,6 +196,27 @@
           "type": "boolean",
           "default": false,
           "description": "Show live diagnostic overlay with state, intent, needs, and performance metrics."
+        },
+        "pixelmate.companion.type": {
+          "type": "string",
+          "default": "smiley",
+          "enum": [
+            "smiley",
+            "cat",
+            "dog",
+            "horse"
+          ],
+          "description": "Choose the active PixelMate companion."
+        },
+        "pixelmate.companion.speechEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow occasional friendly speech bubbles."
+        },
+        "pixelmate.companion.autoSleep": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow PixelMate to sleep after inactivity."
         }
       }
     }

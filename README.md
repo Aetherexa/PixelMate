@@ -1,124 +1,72 @@
 # PixelMate
 
-![Release](https://img.shields.io/badge/release-v0.1.0--alpha-0A6EBD)
-![License](https://img.shields.io/badge/license-MIT-2E8B57)
-![CI](https://img.shields.io/badge/ci-workflows%20enabled-1F8A70)
-![CodeQL](https://img.shields.io/badge/security-CodeQL-enabled-8A2BE2)
-![Foundation](https://img.shields.io/badge/foundation-certified%20v1.0-FF7A00)
+**Your lightweight coding companion for Visual Studio Code.**
 
-![PixelMate Social Preview](assets/social-preview.svg)
+PixelMate brings a small, expressive companion into VS Code. It reacts to your work, celebrates progress, sleeps when you are idle, and stays out of the way when you are focused.
 
-PixelMate is a plugin-first platform for delightful developer companions.
+## Built-in companions
 
-## Mission
+- 🙂 Smiley
+- 🐱 Cat
+- 🐶 Dog
+- 🐴 Horse
 
-Build a durable, extensible runtime platform where companion capabilities can evolve through explicit contracts, strong quality gates, and stable architecture boundaries.
+Choose one with **PixelMate: Choose Companion** or through VS Code settings.
 
-## Vision
+## What PixelMate does
 
-Enable a thriving ecosystem of companion experiences across tools and workflows, with PixelMate serving as the trusted core runtime and extension foundation.
+PixelMate reacts to editor activity, diagnostics, task results, focus changes and inactivity. It can idle, blink, walk, wave, think, celebrate, hop, sleep and wake. Friendly speech bubbles are intentionally infrequent and can be disabled.
 
-## Architecture
+Normal mode is clean: internal state, frame IDs and debug panels are hidden. Design Mode exposes diagnostics for contributors. Demo Mode showcases reactions. Screenshot Mode removes overlays for clean captures.
 
-PixelMate uses a monorepo with clear package boundaries and clean dependency direction.
+## Quick start
 
-- Runtime host lives in `apps/runtime-vscode`.
-- Reference companion lives in `companions/pixelmate-core`.
-- Platform modules live in `packages/*`.
-- Governance and design records live in `docs`, `adrs`, and `rfcs`.
-
-Read:
-
-- `ARCHITECTURE.md`
-- `ARCHITECTURE_INDEX.md`
-- `docs/ARCHITECTURE_DIAGRAM.md`
-- `docs/reference-companion/REFERENCE_COMPANION_GUIDE.md`
-
-## Plugin-First Philosophy
-
-- Core runtime remains minimal and stable.
-- Extension points are explicit and contract-driven.
-- New behavior is expected to arrive through plugins, not core rewrites.
-- Architecture decisions are reviewed and documented before implementation.
-
-## Roadmap
-
-- Sprint 1: Foundation baseline (completed)
-- Sprint 2: Engine contracts and interface hardening
-- Sprint 3: SDK and tooling
-- Sprint 4: Ecosystem and marketplace preparation
-
-See `ROADMAP.md` for details.
-
-## Repository Structure
-
-- `apps/`: runtime applications
-- `companions/`: canonical companion implementations
-- `packages/`: reusable platform modules
-- `tooling/`: shared scripts and quality configuration
-- `docs/`: architecture and product-facing documentation
-- `adrs/`: architecture decision entrypoint
-- `rfcs/`: request for comments entrypoint
-- `meetings/`: meeting history and governance records
-- `assets/`: repository visuals and marketplace collateral
-- `.github/`: issue forms, workflows, templates, and policy automation
-
-## Development
-
-Prerequisites:
-
-- Node.js 20+
-- pnpm 9+
-
-Workspace quality commands:
+Requirements: Node.js 20+, pnpm 9+, VS Code 1.94+.
 
 ```bash
 pnpm install
 pnpm build
-pnpm lint
-pnpm typecheck
 pnpm test
+pnpm extension:package
 ```
 
-Runtime VS Code host:
+Install the generated VSIX in VS Code, then run:
 
-```bash
-pnpm --filter pixelmate-runtime-vscode build
-pnpm --filter pixelmate-runtime-vscode package:vsix
-```
+- **PixelMate: Show Reference Companion**
+- **PixelMate: Choose Companion**
 
-## Quick Start
+For extension development, open the repository in VS Code and launch the Extension Development Host.
 
-1. Read `docs/README.md`.
-2. Read `ARCHITECTURE_INDEX.md`.
-3. Run quality commands.
-4. Launch extension host and execute `PixelMate: Alive Check`.
-5. Review `docs/DEVELOPER_JOURNEY.md` before first contribution.
+## Settings
 
-## FAQ
+PixelMate supports companion type, scale, animation speed, movement speed, theme, personality, behavior intensity, reduced motion, speech, auto-sleep, focus mode and debug mode.
 
-See `docs/FAQ.md`.
+## Architecture
+
+PixelMate is a pnpm monorepo.
+
+- `apps/runtime-vscode` — VS Code host and webview
+- `companions/pixelmate-core` — companion brain, state, needs and behavior
+- `packages/animation` — animation playback
+- `packages/asset-loader` — asset manifests and loading
+- `packages/renderer` — render-frame composition
+
+The runtime observes VS Code events, feeds them to the kernel, advances companion state and sends render snapshots to the webview. The architecture remains asset-ready so richer sprite packs can replace the lightweight built-in presentation later.
+
+See `docs/ARCHITECTURE.md`, `docs/RUNTIME.md`, `docs/RENDERER.md`, and `docs/COMPANION_DESIGN_BIBLE.md`.
+
+## Product principles
+
+PixelMate should make a developer smile without becoming a distraction. It is offline-first, does not require an AI service, and keeps normal-mode UI intentionally minimal.
 
 ## Contributing
 
-Follow `CONTRIBUTING.md` and use GitHub issue forms and PR template.
+Read `CONTRIBUTING.md` and `docs/TESTING.md`. Conventional Commits are required.
 
-All non-trivial architecture changes should include RFC and ADR updates.
+## Security
+
+See `SECURITY.md`.
 
 ## License
 
-MIT. See `LICENSE`.
-
-## Foundation Compliance
-
-- Compliance report: `FOUNDATION_COMPLIANCE_REPORT.md`
-- Migration plan: `MIGRATION_PLAN.md`
-- Security review: `SECURITY_REVIEW.md`
-- Foundation certificate: `FOUNDATION_CERTIFICATE.md`
-- Foundation manifest: `foundation.yaml`
-
-## Public Release Assets
-
-- Release notes: `RELEASE_NOTES.md`
-- Repository profile: `.github/REPOSITORY_PROFILE.md`
-- GitHub settings checklist: `.github/REPOSITORY_SETTINGS.md`
+MIT © 2026 Aetherexa.

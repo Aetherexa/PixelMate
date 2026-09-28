@@ -1,11 +1,14 @@
 import type { PersonalityId } from "./model.js";
 
+export type CompanionType = "smiley" | "cat" | "dog" | "horse";
+
 export interface CompanionPosition {
   readonly x: number;
   readonly y: number;
 }
 
 export interface CompanionSettings {
+  readonly companionType: CompanionType;
   readonly scale: number;
   readonly speed: number;
   readonly movementSpeed: number;
@@ -19,9 +22,12 @@ export interface CompanionSettings {
   readonly focusMode: boolean;
   readonly reduceMotion: boolean;
   readonly debugMode: boolean;
+  readonly speechEnabled: boolean;
+  readonly autoSleep: boolean;
 }
 
 export const DEFAULT_SETTINGS: CompanionSettings = {
+  companionType: "smiley",
   scale: 1,
   speed: 1,
   movementSpeed: 1,
@@ -34,7 +40,9 @@ export const DEFAULT_SETTINGS: CompanionSettings = {
   accessibilityMode: false,
   focusMode: false,
   reduceMotion: false,
-  debugMode: false
+  debugMode: false,
+  speechEnabled: true,
+  autoSleep: true
 };
 
 export function mergeSettings(

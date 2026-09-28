@@ -17,45 +17,62 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   validate:
+    name: Release validation
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
-      - run: pnpm install --frozen-lockfile=false
-      - run: pnpm build
-      - run: pnpm test
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test with coverage
+        run: pnpm test:coverage
+      - name: Build
+        run: pnpm build
 
   package_extension:
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    name: Package extension
     needs: validate
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
-      - run: pnpm install --frozen-lockfile=false
-      - run: pnpm --filter pixelmate-runtime-vscode package:vsix
-      - uses: actions/upload-artifact@v4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Package VSIX
+        run: pnpm extension:package
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
         with:
-          name: pixelmate-runtime-vscode-vsix
+          name: pixelmate-release-vsix
           path: apps/runtime-vscode/*.vsix
+          if-no-files-found: error
+          retention-days: 30
 
   github_release:
+    name: Publish GitHub release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: package_extension
     runs-on: ubuntu-latest
@@ -63,6 +80,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Download packaged VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: pixelmate-release-vsix
+          path: dist/release
       - name: Verify release notes
         shell: bash
         run: test -f RELEASE_NOTES.md
@@ -71,45 +93,45 @@ jobs:
         with:
           body_path: RELEASE_NOTES.md
           generate_release_notes: true
-          files: |
-            apps/runtime-vscode/*.vsix
+          files: dist/release/*.vsix
 
   marketplace_publish:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_marketplace == 'true'
+    name: Publish VS Code Marketplace
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_marketplace == true
     needs: package_extension
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    environment: marketplace
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile=false
-      - run: pnpm --filter pixelmate-runtime-vscode publish:vsce
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-
-  npm_release:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_npm == 'true'
-    needs: validate
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
-      - run: pnpm install --frozen-lockfile=false
-      - run: pnpm release
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Publish extension
+        run: pnpm --filter pixelmate-runtime-vscode publish:vsce
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+  npm_release:
+    name: Publish npm packages
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_npm == true
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Publish packages
+        run: pnpm release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
