@@ -110,8 +110,17 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Publish extension
-        run: pnpm --filter pixelmate-runtime-vscode publish:vsce
+      - name: Download validated VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: pixelmate-release-vsix
+          path: dist/release
+      - name: Publish validated VSIX
+        shell: bash
+        run: |
+          VSIX_PATH="$(find dist/release -maxdepth 1 -name '*.vsix' -print -quit)"
+          test -n "$VSIX_PATH"
+          pnpm --filter pixelmate-runtime-vscode exec vsce publish --packagePath "$VSIX_PATH"
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
