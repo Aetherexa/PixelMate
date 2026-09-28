@@ -64,7 +64,8 @@
     "onStartupFinished",
     "onCommand:pixelmate.demoMode",
     "onCommand:pixelmate.screenshotMode",
-    "onCommand:pixelmate.designMode"
+    "onCommand:pixelmate.designMode",
+    "onCommand:pixelmate.selectCompanion"
   ],
   "contributes": {
     "commands": [
@@ -87,6 +88,10 @@
       {
         "command": "pixelmate.designMode",
         "title": "PixelMate: Design Mode"
+      },
+      {
+        "command": "pixelmate.selectCompanion",
+        "title": "PixelMate: Choose Companion"
       }
     ],
     "configuration": {
