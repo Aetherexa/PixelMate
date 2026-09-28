@@ -16,7 +16,7 @@ export type {
 } from "./model.js";
 export type { CompanionEvent, CompanionEventType } from "./events.js";
 export type { CompanionPersistence } from "./persistence.js";
-export type { CompanionSettings } from "./settings.js";
+export type { CompanionSettings, CompanionType } from "./settings.js";
 export type { CompanionBehaviorPlugin } from "./plugins.js";
 
 export { PIXELMATE_CORE_MANIFEST, DEFAULT_LOCALIZATION, DEFAULT_THEMES } from "./manifest.js";
