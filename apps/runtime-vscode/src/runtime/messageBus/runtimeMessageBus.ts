@@ -1,5 +1,5 @@
-export interface RuntimeMessage<TPayload = unknown> {
-  readonly type: string;
+export interface RuntimeMessage<TPayload = unknown, TType extends string = string> {
+  readonly type: TType;
   readonly payload: TPayload;
   readonly timestamp: number;
   readonly source: string;
@@ -7,9 +7,16 @@ export interface RuntimeMessage<TPayload = unknown> {
   readonly version: number;
 }
 
-export type RuntimeMessageHandler<TPayload = unknown> = (message: RuntimeMessage<TPayload>) => void;
-export type RuntimeMessageMiddleware<TPayload = unknown> = (
-  message: RuntimeMessage<TPayload>,
+export type RuntimeMessageHandler<
+  TPayload = unknown,
+  TType extends string = string
+> = (message: RuntimeMessage<TPayload, TType>) => void;
+
+export type RuntimeMessageMiddleware<
+  TPayload = unknown,
+  TType extends string = string
+> = (
+  message: RuntimeMessage<TPayload, TType>,
   next: () => void
 ) => void;
 
@@ -18,11 +25,14 @@ export interface RuntimeMessageBusOptions {
   readonly logger?: (entry: string) => void;
 }
 
-export class RuntimeMessageBus<TPayload = unknown> {
-  private readonly listeners = new Set<RuntimeMessageHandler<TPayload>>();
-  private readonly onceListeners = new Set<RuntimeMessageHandler<TPayload>>();
-  private readonly middleware: RuntimeMessageMiddleware<TPayload>[] = [];
-  private readonly logger?: (entry: string) => void;
+export class RuntimeMessageBus<
+  TPayload = unknown,
+  TType extends string = string
+> {
+  private readonly listeners = new Set<RuntimeMessageHandler<TPayload, TType>>();
+  private readonly onceListeners = new Set<RuntimeMessageHandler<TPayload, TType>>();
+  private readonly middleware: RuntimeMessageMiddleware<TPayload, TType>[] = [];
+  private readonly logger: ((entry: string) => void) | undefined;
   private readonly name: string;
 
   public constructor(options: RuntimeMessageBusOptions = {}) {
@@ -30,7 +40,7 @@ export class RuntimeMessageBus<TPayload = unknown> {
     this.logger = options.logger;
   }
 
-  public publish(message: RuntimeMessage<TPayload>): void {
+  public publish(message: RuntimeMessage<TPayload, TType>): void {
     this.trace(`publish:${message.type}`);
     const dispatch = () => {
       for (const listener of Array.from(this.listeners)) {
@@ -53,7 +63,13 @@ export class RuntimeMessageBus<TPayload = unknown> {
         dispatch();
         return;
       }
+
       const current = this.middleware[index];
+      if (current === undefined) {
+        dispatch();
+        return;
+      }
+
       index += 1;
       current(message, run);
     };
@@ -61,30 +77,30 @@ export class RuntimeMessageBus<TPayload = unknown> {
     run();
   }
 
-  public subscribe(handler: RuntimeMessageHandler<TPayload>): () => void {
+  public subscribe(handler: RuntimeMessageHandler<TPayload, TType>): () => void {
     this.listeners.add(handler);
     return () => {
       this.listeners.delete(handler);
     };
   }
 
-  public unsubscribe(handler: RuntimeMessageHandler<TPayload>): void {
+  public unsubscribe(handler: RuntimeMessageHandler<TPayload, TType>): void {
     this.listeners.delete(handler);
     this.onceListeners.delete(handler);
   }
 
-  public once(handler: RuntimeMessageHandler<TPayload>): () => void {
+  public once(handler: RuntimeMessageHandler<TPayload, TType>): () => void {
     this.onceListeners.add(handler);
     return () => {
       this.onceListeners.delete(handler);
     };
   }
 
-  public broadcast(message: RuntimeMessage<TPayload>): void {
+  public broadcast(message: RuntimeMessage<TPayload, TType>): void {
     this.publish(message);
   }
 
-  public use(middleware: RuntimeMessageMiddleware<TPayload>): void {
+  public use(middleware: RuntimeMessageMiddleware<TPayload, TType>): void {
     this.middleware.push(middleware);
   }
 
@@ -93,8 +109,6 @@ export class RuntimeMessageBus<TPayload = unknown> {
   }
 
   private trace(entry: string): void {
-    if (this.logger !== undefined) {
-      this.logger(entry);
-    }
+    this.logger?.(entry);
   }
 }
