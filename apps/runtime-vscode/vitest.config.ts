@@ -6,6 +6,15 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
+      include: [
+        "src/constants.ts",
+        "src/extension.ts",
+        "src/runtime/**/*.ts"
+      ],
+      exclude: [
+        "src/**/*.test.ts",
+        "src/runtimeCompanionHost.ts"
+      ],
       thresholds: {
         lines: 90,
         functions: 90,
