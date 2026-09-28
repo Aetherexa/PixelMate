@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, mergeSettings } from "./settings.js";
+import { DEFAULT_SETTINGS, mergeSettings, type CompanionSettings } from "./settings.js";
 
 describe("settings", () => {
   it("merges nested position without losing the other coordinate", () => {
@@ -26,7 +26,7 @@ describe("settings", () => {
   });
 
   it("does not mutate the default settings object", () => {
-    const before = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+    const before: CompanionSettings = structuredClone(DEFAULT_SETTINGS);
     mergeSettings(DEFAULT_SETTINGS, {
       position: { x: 0.1, y: 0.2 },
       personality: "playful"
