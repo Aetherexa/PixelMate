@@ -1,57 +1,60 @@
-# PixelMate v0.1.0-alpha Release Notes
+# PixelMate v1.0.0 Release Notes
 
-Release Date: 2026-08-06
-Release Type: Public Alpha
+Release Date: 2026-09-28  
+Release Type: Stable Marketplace Release
 
 ## Overview
 
-PixelMate v0.1.0-alpha is the first public release of the project and the first product repository built using the Aetherexa Foundation engineering standards.
+PixelMate v1.0.0 turns the runtime foundation into a complete, lightweight coding companion for Visual Studio Code.
 
-This release focuses on platform integrity, extension host baseline behavior, architecture readiness, and contributor onboarding quality. No product feature expansion is included.
+The release focuses on a polished first-run experience, simple built-in companions, responsive behaviors, accessibility, packaging reliability, public-repository quality gates, and production release automation.
 
 ## Highlights
 
-- Foundation-certified repository baseline
-- Plugin-first architecture scaffolding
-- VS Code runtime host with `pixelmate.alive` command
-- Monorepo engineering system with pnpm workspaces and turbo pipelines
-- TypeScript, ESLint, Prettier, Vitest quality baseline
-- CodeQL, Dependabot, and CI workflow coverage
+- Four built-in companions: Smiley, Cat, Dog, and Horse
+- Companion picker from the Command Palette
+- Idle, blink, walk, wave, think, celebrate, hop, sleep, and wake reactions
+- Reactions to typing, focus, diagnostics, task results, and inactivity
+- Friendly low-frequency speech bubbles
+- Auto-sleep, reduced-motion, focus, theme, personality, and debug settings
+- Demo, Design, and Screenshot runtime modes
+- Clean production presentation with debug labels hidden by default
+- Offline-first runtime with no AI or network dependency required
 
-## Included In This Alpha
+## Engineering and Quality
 
-- Public repository governance and onboarding documentation
-- Architecture index and architecture guide
-- ADR, RFC, PRD, decision, review, and release documentation scaffolds
-- Release readiness and compliance artifacts
+- Runtime protocol and message bus tests
+- Extension command and companion-selection tests
+- Core behavior, memory, presence, settings, animation, renderer, and asset-loader tests
+- Package-level coverage thresholds
+- Lint, typecheck, build, test, CodeQL, Commitlint, and Dependabot workflows
+- Frozen-lockfile CI installs
+- VSIX packaging as a CI artifact
+- Release automation for GitHub Releases and the VS Code Marketplace
 
-## Not Included In This Alpha
+## Release Validation
 
-- Companion behaviors
-- Character systems
-- Final rendering and animation systems
-- Public plugin SDK
+A release is eligible only after:
 
-## Stability and API Notes
+1. Lint passes.
+2. Typecheck passes.
+3. Coverage gates pass.
+4. Build passes.
+5. VSIX packaging succeeds.
+6. The generated VSIX is smoke-tested in a clean VS Code profile.
 
-- Public package names are established for long-term direction.
-- APIs remain early-stage and may evolve during alpha with documented changelog entries.
-- No breaking architecture refactor was introduced as part of release preparation.
+The VS Code host/webview integration is validated by build/package smoke testing; reusable runtime modules remain under strict unit coverage thresholds.
 
-## Validation Summary
+## Compatibility
 
-- Build: passed across workspace packages and runtime app
-- Tests: passed across workspace packages and runtime app
-- Documentation link validation: passed
+- Visual Studio Code 1.94.0 or newer
+- Node.js 20.11+ for contributors
+- pnpm 9.15.0 for repository development
 
-## Upgrade and Adoption
+## Privacy
 
-New adopters can start with:
-1. README.md
-2. docs/README.md
-3. ARCHITECTURE_INDEX.md
-4. CONTRIBUTING.md
+PixelMate is local and offline-first. No telemetry or external AI service is required for the v1 companion experience.
 
-## Acknowledgements
+## Known Scope
 
-Thanks to Platform Engineering, Runtime Team, QA, and Security reviewers for preparing this alpha release.
+PixelMate v1 intentionally does not include a public companion SDK, Studio, community marketplace, cloud features, voice, or generated sprite packs. Those remain future directions rather than v1 dependencies.
