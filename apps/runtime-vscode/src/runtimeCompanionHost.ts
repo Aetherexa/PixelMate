@@ -23,6 +23,16 @@ import { WebviewBridge } from "./runtime/webviewBridge.js";
 const CONFIG_ROOT = "pixelmate.companion";
 const IDLE_THRESHOLD_MS = 60_000;
 
+function isPersonalityId(value: unknown): value is CompanionSettings["personality"] {
+  return (
+    value === "calm" ||
+    value === "curious" ||
+    value === "playful" ||
+    value === "focused" ||
+    value === "cheerful"
+  );
+}
+
 class WorkspacePersistence implements CompanionPersistence {
   public constructor(private readonly storage: vscode.Memento) {}
 
@@ -42,7 +52,10 @@ export class RuntimeCompanionHost implements vscode.Disposable {
   private readonly kernel: PixelMateCompanionKernel;
   private readonly assetLoader = new AssetLoader();
   private readonly animationPlayer: AnimationPlayer;
-  private readonly messageBus = new RuntimeMessageBus<RuntimeCommandPayload>({
+  private readonly messageBus = new RuntimeMessageBus<
+    RuntimeCommandPayload,
+    RuntimeMessage["type"]
+  >({
     name: "runtime-host-bus"
   });
   private readonly webviewBridge = new WebviewBridge();
@@ -57,7 +70,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
   private isReady = false;
   private currentMode: RuntimeMode = "default";
   private currentTheme = "default";
-  private currentPersonality = "calm";
+  private currentPersonality: CompanionSettings["personality"] = "calm";
   private demoSequence = ["wave", "celebrate", "observe", "idle"];
   private demoIndex = 0;
   private demoTimer: NodeJS.Timeout | undefined;
@@ -215,7 +228,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
     this.send(createRuntimeMessage(RUNTIME_MESSAGE_TYPES.SET_THEME, { theme }, "vscode", "engine"));
   }
 
-  public setPersonality(personality: string): void {
+  public setPersonality(personality: CompanionSettings["personality"]): void {
     this.currentPersonality = personality;
     this.send(
       createRuntimeMessage(
@@ -527,10 +540,12 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         this.kernel.updateSettings({ theme: this.currentTheme });
         break;
       case RUNTIME_MESSAGE_TYPES.SET_PERSONALITY:
-        this.currentPersonality = payload.personality ?? this.currentPersonality;
-        this.kernel.updateSettings({
-          personality: this.currentPersonality
-        });
+        if (isPersonalityId(payload.personality)) {
+          this.currentPersonality = payload.personality;
+          this.kernel.updateSettings({
+            personality: this.currentPersonality
+          });
+        }
         break;
       case RUNTIME_MESSAGE_TYPES.FREEZE:
         this.kernel.handleEvent({ type: "activity", at: Date.now(), payload: { frozen: true } });
@@ -657,7 +672,9 @@ export class RuntimeCompanionHost implements vscode.Disposable {
       }
       const step = this.demoSequence[this.demoIndex % this.demoSequence.length];
       this.demoIndex += 1;
-      this.playAnimation(step);
+      if (step !== undefined) {
+        this.playAnimation(step);
+      }
     }, 3500);
   }
 
