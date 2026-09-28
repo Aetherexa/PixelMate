@@ -1,23 +1,34 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to PixelMate are documented here. The project follows Keep a Changelog and Semantic Versioning.
 
-The format follows Keep a Changelog and Semantic Versioning.
+## [Unreleased]
 
-## [0.1.0-alpha] - 2026-08-06
 ### Added
-- Public-release documentation pack for onboarding and contributor discovery
-- Architecture diagram and developer journey guides
-- GitHub repository profile, settings checklist, labels catalog, and label sync workflow
-- Release notes and social preview asset for launch
+- Smiley, Cat, Dog and Horse built-in companion choices
+- quick companion picker command
+- friendly low-frequency speech bubbles
+- auto-sleep and speech settings
+- living companion presentation for idle, walk, blink, wave, celebrate, hop, think, stretch, sleep and wake behaviors
+- runtime, renderer, animation, asset, testing, release, Marketplace and companion-design documentation
 
 ### Changed
-- README upgraded to public-release quality landing page
-- Release workflow expanded to support GitHub release publishing from tags
+- normal mode now hides internal debug HUD information
+- companion placeholder labels are replaced by visual companions
+- Marketplace-facing name and description are more user focused
+- idle sleep can be disabled
+
+## [0.1.0-alpha] - 2026-08-06
+
+### Added
+- public-release documentation pack
+- architecture and developer journey guides
+- repository profile, settings checklist and release workflow
 
 ## [0.1.0] - 2026-08-06
+
 ### Added
-- Sprint 1 production-grade monorepo foundation
-- VS Code runtime host with alive command
-- Core package scaffolding for long-term architecture
-- CI workflows, quality gates, and release automation baseline
+- production-grade monorepo foundation
+- VS Code runtime host
+- core package scaffolding
+- CI, quality gates and release automation baseline
