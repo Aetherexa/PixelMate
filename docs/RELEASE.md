@@ -12,3 +12,10 @@ PixelMate uses Conventional Commits and a protected `main` branch.
 7. Publish the VSIX/Marketplace release only after verification.
 
 Never publish from an unreviewed working branch and never hardcode publisher credentials.
+
+
+## Sonar quality gate
+
+Production release validation includes SonarQube analysis when `SONAR_TOKEN`, `SONAR_PROJECT_KEY`, and `SONAR_ORGANIZATION` are configured in GitHub. The release workflow waits for the Sonar quality gate before continuing to build and package the release.
+
+For SonarQube Cloud, create/import the PixelMate project first, then add the generated token as the `SONAR_TOKEN` repository or organization secret. Keep the project key and organization key as GitHub Actions variables.
