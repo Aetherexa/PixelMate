@@ -61,6 +61,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private timer: NodeJS.Timeout | undefined;
   private typingDebounceTimer: NodeJS.Timeout | undefined;
   private readonly kernel: PixelMateCompanionKernel;
+  private readonly extensionUri: vscode.Uri;
   private readonly assetLoader = new AssetLoader();
   private readonly animationPlayer: AnimationPlayer;
   private readonly messageBus = new RuntimeMessageBus<
@@ -95,6 +96,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private readonly disposables: vscode.Disposable[] = [];
 
   public constructor(context: vscode.ExtensionContext) {
+    this.extensionUri = context.extensionUri;
     this.assetLoader.loadManifest(createCompanionAssetManifest());
     const idleSprite = this.assetLoader.getSprite("idle");
     this.animationPlayer = new AnimationPlayer(
@@ -150,9 +152,10 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   public resolveWebviewView(webviewView: vscode.WebviewView): void {
     this.view = webviewView;
     this.view.webview.options = {
-      enableScripts: true
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "assets")]
     };
-    this.view.webview.html = this.getWebviewHtml();
+    this.view.webview.html = this.getWebviewHtml(this.view.webview);
     this.view.webview.onDidReceiveMessage(
       (message) => {
         this.handleWebviewMessage(message);
@@ -826,7 +829,25 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     }
   }
 
-  private getWebviewHtml(): string {
+  private getWebviewHtml(webview: vscode.Webview): string {
+    const habitatUris = {
+      livingRoom: webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, "assets", "habitats", "living-room.svg")
+      ).toString(),
+      outdoorGround: webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, "assets", "habitats", "outdoor-ground.svg")
+      ).toString(),
+      snowyMountains: webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, "assets", "habitats", "snowy-mountains.svg")
+      ).toString(),
+      greenMountains: webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, "assets", "habitats", "green-mountains.svg")
+      ).toString(),
+      officeDesk: webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, "assets", "habitats", "office-desk.svg")
+      ).toString()
+    };
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
