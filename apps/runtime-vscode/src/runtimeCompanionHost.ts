@@ -22,6 +22,16 @@ import { WebviewBridge } from "./runtime/webviewBridge.js";
 
 const CONFIG_ROOT = "pixelmate.companion";
 const IDLE_THRESHOLD_MS = 60_000;
+const ACTIVE_WINDOW_MS = 120_000;
+const HYDRATION_INTERVAL_MS = 20 * 60_000;
+const STAND_INTERVAL_MS = 60 * 60_000;
+
+type HabitatBackground =
+  | "livingRoom"
+  | "outdoorGround"
+  | "snowyMountains"
+  | "greenMountains"
+  | "officeDesk";
 
 function isPersonalityId(value: unknown): value is CompanionSettings["personality"] {
   return (
@@ -78,6 +88,10 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private lastTickAt = Date.now();
   private lastActivityAt = Date.now();
   private lastRenderAt = Date.now();
+  private currentBackground: HabitatBackground = "snowyMountains";
+  private windowFocused = true;
+  private activeCycleMs = 0;
+  private nextHydrationReminderAt = HYDRATION_INTERVAL_MS;
   private readonly disposables: vscode.Disposable[] = [];
 
   public constructor(context: vscode.ExtensionContext) {
@@ -129,7 +143,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   }
 
   public show(): void {
-    void vscode.commands.executeCommand("workbench.view.extension.pixelmate");
+    void vscode.commands.executeCommand("workbench.view.explorer");
     void vscode.commands.executeCommand("pixelmate.companionView.focus");
   }
 
@@ -289,6 +303,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private attachRuntimeEvents(): void {
     this.disposables.push(
       vscode.window.onDidChangeWindowState((state) => {
+        this.windowFocused = state.focused;
         this.handleActivity(state.focused ? "windowFocus" : "windowBlur");
       })
     );
@@ -378,6 +393,8 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
         this.kernel.handleEvent({ type: "cursorIdle", at: now });
       }
 
+      this.updateWellnessSession(deltaMs, now);
+
       if (this.panel === undefined && this.view === undefined) {
         return;
       }
@@ -385,6 +402,46 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
       const snapshot = this.kernel.tick(deltaMs);
       this.renderSnapshot(snapshot);
     }, 220);
+  }
+
+  private updateWellnessSession(deltaMs: number, now: number): void {
+    const config = vscode.workspace.getConfiguration(CONFIG_ROOT);
+    const remindersEnabled = config.get<boolean>("wellnessReminders", true);
+    const recentlyActive = now - this.lastActivityAt <= ACTIVE_WINDOW_MS;
+
+    if (!remindersEnabled || !this.windowFocused || !recentlyActive) {
+      return;
+    }
+
+    this.activeCycleMs += deltaMs;
+
+    if (this.activeCycleMs >= STAND_INTERVAL_MS) {
+      this.postWellnessMessage(
+        "stand",
+        "You’ve been coding for an hour. Stand up, stretch, or take a short walk 🚶"
+      );
+      this.activeCycleMs = 0;
+      this.nextHydrationReminderAt = HYDRATION_INTERVAL_MS;
+      return;
+    }
+
+    if (this.activeCycleMs >= this.nextHydrationReminderAt) {
+      this.postWellnessMessage(
+        "hydrate",
+        "Hydration check 💧 Rest your eyes for a moment and grab some water."
+      );
+      this.nextHydrationReminderAt += HYDRATION_INTERVAL_MS;
+    }
+  }
+
+  private postWellnessMessage(kind: "hydrate" | "stand", message: string): void {
+    this.postToCompanion({
+      type: "wellness",
+      payload: {
+        kind,
+        message
+      }
+    });
   }
 
   private handleActivity(
@@ -452,6 +509,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     };
 
     this.kernel.updateSettings(nextSettings);
+    this.currentBackground = config.get<HabitatBackground>("background", "snowyMountains");
   }
 
   private hasAnyErrors(): boolean {
@@ -493,6 +551,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
         mode: this.currentMode,
         theme: this.currentTheme,
         personality: this.currentPersonality,
+        habitatBackground: this.currentBackground,
         debug: this.currentMode === "design"
       }
     });
@@ -580,10 +639,19 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private handleWebviewMessage(message: unknown): void {
     const webviewMessage = message as {
       type?: string;
-      payload?: RuntimeCommandPayload;
+      payload?: RuntimeCommandPayload & {
+        action?: string;
+        companionType?: CompanionSettings["companionType"];
+        background?: HabitatBackground;
+      };
       requestId?: string;
     };
     if (webviewMessage.type === undefined) {
+      return;
+    }
+
+    if (webviewMessage.type === "pixelmate.ui") {
+      this.handleUiAction(webviewMessage.payload ?? {});
       return;
     }
 
@@ -597,6 +665,46 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     }
 
     this.webviewBridge.receive({ type: webviewMessage.type, payload: webviewMessage.payload });
+  }
+
+  private handleUiAction(
+    payload: RuntimeCommandPayload & {
+      action?: string;
+      companionType?: CompanionSettings["companionType"];
+      background?: HabitatBackground;
+    }
+  ): void {
+    switch (payload.action) {
+      case "setCompanion":
+        if (payload.companionType !== undefined) {
+          void vscode.workspace
+            .getConfiguration(CONFIG_ROOT)
+            .update("type", payload.companionType, vscode.ConfigurationTarget.Global);
+        }
+        break;
+      case "setBackground":
+        if (payload.background !== undefined) {
+          this.currentBackground = payload.background;
+          void vscode.workspace
+            .getConfiguration(CONFIG_ROOT)
+            .update("background", payload.background, vscode.ConfigurationTarget.Global);
+          this.renderSnapshot(this.kernel.tick(0));
+        }
+        break;
+      case "feed":
+        this.kernel.handleEvent({ type: "activity", at: Date.now(), payload: { interaction: "feed" } });
+        this.playAnimation("celebrate");
+        break;
+      case "nap":
+        this.kernel.handleEvent({ type: "idleTimeout", at: Date.now(), payload: { interaction: "nap" } });
+        break;
+      case "throwBall":
+        this.kernel.handleEvent({ type: "activity", at: Date.now(), payload: { interaction: "throwBall" } });
+        this.playAnimation("walk");
+        break;
+      default:
+        break;
+    }
   }
 
   private applyModeState(mode: RuntimeMode): void {
@@ -721,302 +829,518 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private getWebviewHtml(): string {
     return `<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PixelMate Companion</title>
-    <style>
-      :root {
-        --bg: #0e2439;
-        --accent: #00b4d8;
-      }
-      body {
-        margin: 0;
-        padding: 0;
-        background: radial-gradient(circle at top right, #16425b 0%, var(--bg) 65%);
-        color: #e8f6ff;
-        font-family: "Segoe UI", system-ui, sans-serif;
-      }
-      .stage {
-        width: 100vw;
-        height: 100vh;
-        position: relative;
-        overflow: hidden;
-      }
-      .companion {
-        position: absolute;
-        width: 120px;
-        height: 120px;
-        display: grid;
-        place-items: center;
-        transition: left 500ms ease, top 500ms ease, transform 160ms ease;
-        transform-origin: 50% 80%;
-        user-select: none;
-      }
-      .sprite {
-        font-size: 72px;
-        line-height: 1;
-        filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.28));
-        transform-origin: 50% 75%;
-      }
-      .speech {
-        position: absolute;
-        left: 50%;
-        bottom: 106px;
-        transform: translateX(-50%) translateY(4px);
-        max-width: 180px;
-        padding: 7px 10px;
-        border-radius: 12px 12px 12px 3px;
-        background: rgba(255,255,255,.96);
-        color: #13212a;
-        font-size: 12px;
-        font-weight: 600;
-        white-space: nowrap;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 180ms ease, transform 180ms ease;
-      }
-      .speech.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .behavior-wave .sprite { animation: pm-wave .8s ease-in-out 2; }
-      .behavior-celebrate .sprite, .behavior-smile .sprite { animation: pm-celebrate .65s ease-in-out 2; }
-      .behavior-hop .sprite, .behavior-tinyBounce .sprite { animation: pm-hop .55s ease-in-out 2; }
-      .behavior-walk .sprite { animation: pm-walk .7s ease-in-out infinite; }
-      .behavior-sleep .sprite, .behavior-breathing .sprite { animation: pm-breathe 2.3s ease-in-out infinite; opacity: .82; }
-      .behavior-blink .sprite, .behavior-doubleBlink .sprite { animation: pm-blink .35s ease-in-out; }
-      .behavior-think .sprite, .behavior-observe .sprite { animation: pm-think 1.8s ease-in-out infinite; }
-      .behavior-stretch .sprite { animation: pm-stretch .8s ease-in-out; }
-      @keyframes pm-wave { 0%,100%{transform:rotate(0)} 35%{transform:rotate(-12deg)} 70%{transform:rotate(10deg)} }
-      @keyframes pm-celebrate { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-14px) scale(1.08)} }
-      @keyframes pm-hop { 0%,100%{transform:translateY(0)} 45%{transform:translateY(-18px)} }
-      @keyframes pm-walk { 0%,100%{transform:translateX(-7px) rotate(-3deg)} 50%{transform:translateX(7px) rotate(3deg)} }
-      @keyframes pm-breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.045)} }
-      @keyframes pm-blink { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(.72)} }
-      @keyframes pm-think { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
-      @keyframes pm-stretch { 0%,100%{transform:scale(1)} 50%{transform:scaleX(1.12) scaleY(.9)} }
-      @media (prefers-reduced-motion: reduce) {
-        .sprite { animation: none !important; }
-        .companion { transition: none; }
-      }
-      .hud {
-        position: absolute;
-        left: 12px;
-        top: 12px;
-        padding: 10px 12px;
-        border-radius: 10px;
-        background: rgba(3, 19, 29, 0.72);
-        backdrop-filter: blur(4px);
-        font-size: 12px;
-        line-height: 1.5;
-      }
-      .hud strong {
-        color: #8de4ff;
-      }
-      .tiny {
-        opacity: 0.8;
-      }
-      .panel {
-        position: absolute;
-        right: 12px;
-        top: 12px;
-        width: min(320px, 34vw);
-        max-height: 48vh;
-        overflow: auto;
-        padding: 10px 12px;
-        border-radius: 10px;
-        background: rgba(3, 19, 29, 0.72);
-        backdrop-filter: blur(4px);
-        font-size: 12px;
-        line-height: 1.45;
-      }
-      button {
-        margin-top: 6px;
-        border: none;
-        border-radius: 6px;
-        padding: 6px 8px;
-        background: var(--accent);
-        color: #062130;
-        cursor: pointer;
-        font-weight: 700;
-      }
-      pre {
-        white-space: pre-wrap;
-        word-break: break-word;
-        margin: 0;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="stage">
-      <div class="hud">
-        <div><strong>PixelMate Core</strong></div>
-        <div id="intent">Intent: observe</div>
-        <div id="behavior">Behavior: idle</div>
-        <div id="lifecycle">Lifecycle: running</div>
-        <div id="personality">Personality: calm</div>
-        <div id="needs" class="tiny">Needs: E70 C56 F48</div>
-        <div id="theme">Theme: default</div>
-        <div id="cpu" class="tiny">CPU hint: low</div>
-        <div id="perf" class="tiny">FPS: 0 | Frame: 0.00ms</div>
-        <div id="events" class="tiny">Events: 0</div>
-      </div>
-      <div class="panel">
-        <div><strong>Runtime Debug</strong></div>
-        <div id="mode">Mode: default</div>
-        <div id="queue">Queue: 0</div>
-        <div id="lastEvent">Last event: none</div>
-        <div id="timeline">Timeline: []</div>
-        <button id="exportButton">Export JSON</button>
-      </div>
-      <div id="companion" class="companion">
-        <div id="speech" class="speech"></div>
-        <div id="sprite" class="sprite" aria-label="PixelMate">🙂</div>
-      </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelMate</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --panel: rgba(15, 23, 42, .92);
+      --panel-border: rgba(148, 163, 184, .18);
+      --text: var(--vscode-foreground, #e6edf7);
+      --muted: var(--vscode-descriptionForeground, #9aa7b8);
+      --accent: #3b82f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 8px;
+      color: var(--text);
+      background: transparent;
+      font-family: var(--vscode-font-family, "Segoe UI", sans-serif);
+      font-size: 12px;
+    }
+    button { font: inherit; }
+    .shell { display: grid; gap: 8px; min-width: 210px; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding: 2px 2px 4px;
+    }
+    .brand { display: flex; align-items: center; gap: 7px; min-width: 0; font-weight: 700; }
+    .brand-mark {
+      width: 22px; height: 22px; display: grid; place-items: center;
+      border-radius: 7px; background: linear-gradient(135deg,#2563eb,#06b6d4);
+      box-shadow: 0 5px 14px rgba(37,99,235,.26);
+    }
+    .status-chip {
+      display: flex; align-items: center; gap: 5px; border-radius: 999px;
+      padding: 4px 8px; background: rgba(15,23,42,.7);
+      border: 1px solid var(--panel-border); color: #86efac; white-space: nowrap;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+
+    .habitat {
+      position: relative; height: 228px; border-radius: 12px; overflow: hidden;
+      border: 1px solid rgba(96,165,250,.42);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 9px 24px rgba(0,0,0,.18);
+      background: #10253d;
+    }
+    .world {
+      position: absolute; inset: 0 auto 0 -22%; width: 144%; height: 100%;
+      transition: transform 700ms cubic-bezier(.2,.8,.2,1), filter 300ms ease;
+      transform: translateX(0);
+      background-size: cover;
+    }
+    .world::before, .world::after { content: ""; position: absolute; pointer-events: none; }
+    .theme-snowyMountains {
+      background:
+        radial-gradient(circle at 18% 15%, rgba(255,255,255,.88) 0 1px, transparent 2px),
+        radial-gradient(circle at 67% 22%, rgba(255,255,255,.7) 0 1px, transparent 2px),
+        radial-gradient(circle at 83% 9%, rgba(255,255,255,.74) 0 1px, transparent 2px),
+        linear-gradient(180deg,#071b37 0%,#183d70 48%,#dbeafe 49%,#eff6ff 100%);
+    }
+    .theme-snowyMountains::before {
+      left: 0; right: 0; bottom: 39px; height: 112px;
+      background: linear-gradient(145deg,transparent 0 15%,#6478bd 15% 29%,#dbeafe 29% 36%,#6b72b5 36% 48%,#eef2ff 48% 55%,#5b6f9f 55% 68%,transparent 68%);
+      opacity: .95;
+    }
+    .theme-snowyMountains::after {
+      left: 0; right: 0; bottom: 0; height: 62px;
+      background: linear-gradient(180deg,#dbeafe,#bfdbfe 56%,#eff6ff 57%);
+      clip-path: polygon(0 21%,16% 8%,29% 24%,44% 7%,59% 23%,75% 6%,100% 20%,100% 100%,0 100%);
+    }
+    .theme-greenMountains {
+      background: linear-gradient(180deg,#63b3ed 0%,#b9e7fb 46%,#84cc7c 47%,#2f855a 100%);
+    }
+    .theme-greenMountains::before {
+      left:0; right:0; bottom:51px; height:120px;
+      background: linear-gradient(145deg,transparent 0 12%,#4d7c5d 12% 25%,#86b779 25% 36%,#3f6f58 36% 49%,#8ccf7b 49% 60%,#416b57 60% 72%,transparent 72%);
+    }
+    .theme-greenMountains::after {
+      left:0; right:0; bottom:0; height:67px;
+      background: linear-gradient(180deg,#65a30d,#3f7d20);
+    }
+    .theme-outdoorGround {
+      background: linear-gradient(180deg,#7dd3fc 0%,#d9f99d 57%,#65a30d 58%,#3f6212 100%);
+    }
+    .theme-outdoorGround::before {
+      left: 5%; right: 5%; top: 30px; height: 60px;
+      background: radial-gradient(ellipse at 15% 80%,#15803d 0 18%,transparent 19%),
+                  radial-gradient(ellipse at 78% 75%,#166534 0 20%,transparent 21%);
+    }
+    .theme-outdoorGround::after {
+      left:0; right:0; bottom:14px; height:10px;
+      background: repeating-linear-gradient(90deg,rgba(255,255,255,.22) 0 3px,transparent 3px 14px);
+    }
+    .theme-livingRoom {
+      background: linear-gradient(180deg,#d97745 0%,#a84b31 56%,#79472d 57%,#4b2d20 100%);
+    }
+    .theme-livingRoom::before {
+      width: 78px; height: 58px; left: 12%; top: 42px; border-radius: 6px;
+      background: #f0c8a6; border: 7px solid #6b3a25; box-shadow: 210px 36px 0 -11px #2f6846;
+    }
+    .theme-livingRoom::after {
+      left:0; right:0; bottom:42px; height:4px; background: rgba(255,255,255,.15);
+      box-shadow: 0 22px 0 rgba(255,255,255,.05),0 44px 0 rgba(255,255,255,.04);
+    }
+    .theme-officeDesk {
+      background: linear-gradient(180deg,#26364d 0%,#34495e 54%,#7b5132 55%,#4b2e1e 100%);
+    }
+    .theme-officeDesk::before {
+      width: 118px; height: 68px; left: 17%; top: 37px; border-radius: 5px;
+      background: #091827; border: 7px solid #111827; box-shadow: 170px 30px 0 -24px #397b55;
+    }
+    .theme-officeDesk::after {
+      left:0; right:0; bottom:45px; height:7px; background:#9a6743;
+      box-shadow: 0 7px 0 #52331f;
+    }
+    .habitat-vignette {
+      position:absolute; inset:0; pointer-events:none;
+      background: linear-gradient(180deg,rgba(0,0,0,.08),transparent 32%,rgba(0,0,0,.18));
+      box-shadow: inset 0 0 36px rgba(3,10,22,.3);
+    }
+    .ground-shadow {
+      position:absolute; width:54px; height:11px; bottom:21px; left:50%;
+      transform:translateX(-50%); border-radius:50%;
+      background:rgba(0,0,0,.25); filter:blur(3px); transition:left 900ms ease;
+    }
+    .companion {
+      position:absolute; width:70px; height:70px; left:42%; bottom:22px;
+      display:grid; place-items:center; transform:translateX(-50%);
+      transition:left 900ms cubic-bezier(.25,.8,.25,1);
+      z-index:4; user-select:none;
+    }
+    .sprite {
+      font-size:52px; line-height:1; transform-origin:50% 85%;
+      filter:drop-shadow(0 8px 6px rgba(0,0,0,.28));
+    }
+    .companion.moving .sprite { animation: walk .42s ease-in-out infinite; }
+    .companion.excited .sprite { animation: excited .48s ease-in-out 3; }
+    .companion.sleeping .sprite { animation: breathe 2.2s ease-in-out infinite; filter:grayscale(.08) drop-shadow(0 7px 6px rgba(0,0,0,.25)); }
+    .companion.flip .sprite { transform:scaleX(-1); }
+    .companion.flip.moving .sprite { animation: walkFlip .42s ease-in-out infinite; }
+    @keyframes walk { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-5px) rotate(2deg)} }
+    @keyframes walkFlip { 0%,100%{transform:scaleX(-1) translateY(0) rotate(-2deg)} 50%{transform:scaleX(-1) translateY(-5px) rotate(2deg)} }
+    @keyframes excited { 0%,100%{transform:translateY(0) scale(1)} 45%{transform:translateY(-12px) scale(1.08)} 70%{transform:translateY(1px) scale(.96)} }
+    @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04,.96)} }
+    .ball {
+      position:absolute; width:18px; height:18px; border-radius:50%; bottom:29px; left:72%;
+      z-index:3; opacity:0; transform:scale(.3);
+      background:radial-gradient(circle at 35% 30%,#fff 0 8%,#fb7185 9% 28%,#ef4444 29% 62%,#991b1b 63%);
+      box-shadow:0 5px 8px rgba(0,0,0,.35);
+      transition:left 450ms cubic-bezier(.2,.8,.2,1),opacity 150ms,transform 240ms;
+    }
+    .ball.visible { opacity:1; transform:scale(1); }
+    .speech {
+      position:absolute; z-index:8; left:50%; top:18px; transform:translateX(-50%) translateY(4px);
+      width:max-content; max-width:86%; padding:7px 10px; border-radius:10px 10px 10px 3px;
+      color:#172033; background:rgba(255,255,255,.96); box-shadow:0 7px 18px rgba(0,0,0,.18);
+      font-weight:600; line-height:1.35; opacity:0; transition:opacity 160ms,transform 160ms;
+      pointer-events:none; text-align:center;
+    }
+    .speech.visible { opacity:1; transform:translateX(-50%) translateY(0); }
+    .habitat-badge {
+      position:absolute; top:8px; left:8px; z-index:7; display:flex; align-items:center; gap:5px;
+      padding:4px 7px; border-radius:8px; background:rgba(4,15,28,.58);
+      backdrop-filter:blur(5px); border:1px solid rgba(255,255,255,.12); font-size:11px;
+    }
+    .actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+    .action {
+      min-width:0; height:38px; padding:4px 2px; border-radius:8px; border:1px solid var(--panel-border);
+      color:var(--text); background:rgba(30,41,59,.72); cursor:pointer;
+      display:grid; place-items:center; gap:0; transition:transform 120ms,border-color 120ms,background 120ms;
+    }
+    .action:hover { border-color:rgba(96,165,250,.65); background:rgba(37,99,235,.16); }
+    .action:active { transform:scale(.96); }
+    .action .icon { font-size:15px; }
+    .action .label { font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+    .action.primary { background:linear-gradient(135deg,#2563eb,#0ea5e9); border-color:#60a5fa; }
+
+    .design {
+      overflow:hidden; border:1px solid var(--panel-border); border-radius:10px;
+      background:rgba(15,23,42,.58);
+    }
+    .design-toggle {
+      width:100%; border:0; color:var(--text); background:transparent; cursor:pointer;
+      padding:9px 10px; display:flex; align-items:center; justify-content:space-between; font-weight:700;
+    }
+    .chevron { transition:transform 180ms; }
+    .design.open .chevron { transform:rotate(180deg); }
+    .design-content { max-height:0; opacity:0; overflow:hidden; transition:max-height 260ms ease,opacity 180ms ease; }
+    .design.open .design-content { max-height:360px; opacity:1; }
+    .design-inner { padding:0 9px 10px; display:grid; gap:10px; }
+    .section-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px; }
+    .choices { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+    .choice {
+      position:relative; min-width:0; border-radius:8px; border:1px solid var(--panel-border);
+      background:rgba(30,41,59,.7); color:var(--text); padding:6px 3px; cursor:pointer; text-align:center;
+    }
+    .choice.selected { border-color:#60a5fa; box-shadow:inset 0 0 0 1px #2563eb; background:rgba(37,99,235,.16); }
+    .choice .preview { display:block; font-size:24px; margin-bottom:2px; }
+    .choice .name { font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+    .backgrounds { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .background-choice { padding:0; overflow:hidden; text-align:left; }
+    .background-thumb { display:block; height:38px; }
+    .background-name { display:block; padding:5px 6px; font-size:9px; }
+    .bg-livingRoom { background:linear-gradient(160deg,#e48a55,#873c2a 58%,#58331f 59%); }
+    .bg-outdoorGround { background:linear-gradient(#7dd3fc 0 55%,#65a30d 56%); }
+    .bg-snowyMountains { background:linear-gradient(#183d70 0 55%,#dbeafe 56%); }
+    .bg-greenMountains { background:linear-gradient(#71c6ea 0 50%,#4d8b55 51%); }
+    .bg-officeDesk { background:linear-gradient(#33465d 0 55%,#70482e 56%); }
+    .footnote { color:var(--muted); font-size:9px; line-height:1.35; text-align:center; padding:1px 6px 3px; }
+    @media (prefers-reduced-motion: reduce) {
+      .world,.companion,.ground-shadow,.sprite,.ball { animation:none!important; transition:none!important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">🐾</span><span>PixelMate</span></div>
+      <div id="statusChip" class="status-chip"><span class="status-dot"></span><span id="statusText">Happy</span></div>
     </div>
-    <script>
-      const companion = document.getElementById("companion");
-      const sprite = document.getElementById("sprite");
-      const speech = document.getElementById("speech");
-      const companionGlyphs = { smiley: "🙂", cat: "🐱", dog: "🐶", horse: "🐴" };
-      const phrases = {
-        celebrate: ["Nice work!", "Great job!", "Ship it! ✨"],
-        think: ["Interesting…", "Thinking with you."],
-        sleep: ["Zzz…"],
-        wake: ["Welcome back!", "Ready?"],
-        wave: ["Hi! 👋", "Hey there!"],
-        default: ["Looking good.", "You’ve got this.", "Hydrate 💧"]
-      };
-      let greeted = false;
-      let lastSpeechAt = 0;
-      let speechTimer;
-      const intent = document.getElementById("intent");
-      const behavior = document.getElementById("behavior");
-      const lifecycle = document.getElementById("lifecycle");
-      const personality = document.getElementById("personality");
-      const needs = document.getElementById("needs");
-      const theme = document.getElementById("theme");
-      const cpu = document.getElementById("cpu");
-      const perf = document.getElementById("perf");
-      const events = document.getElementById("events");
-      const mode = document.getElementById("mode");
-      const queue = document.getElementById("queue");
-      const lastEvent = document.getElementById("lastEvent");
-      const timeline = document.getElementById("timeline");
-      const exportButton = document.getElementById("exportButton");
-      const hud = document.querySelector(".hud");
-      const debugPanel = document.querySelector(".panel");
-      const stage = document.querySelector(".stage");
-      const timelineEntries = [];
 
-      const themes = {
-        default: { bg: "#0e2439", accent: "#00b4d8" },
-        ocean: { bg: "#12324a", accent: "#4fd1c5" },
-        sunrise: { bg: "#3a2c2c", accent: "#ff9e6d" }
-      };
+    <section id="habitat" class="habitat">
+      <div id="world" class="world theme-snowyMountains"></div>
+      <div class="habitat-vignette"></div>
+      <div class="habitat-badge"><span id="habitatCompanion">🐶</span><span id="habitatLabel">Dog · Snowy Mountains</span></div>
+      <div id="speech" class="speech"></div>
+      <div id="ball" class="ball"></div>
+      <div id="shadow" class="ground-shadow"></div>
+      <div id="companion" class="companion">
+        <div id="sprite" class="sprite" aria-label="PixelMate companion">🐶</div>
+      </div>
+    </section>
 
-      window.addEventListener("message", (event) => {
-        if (!event.data || event.data.type !== "snapshot") {
-          return;
-        }
+    <div class="actions">
+      <button id="throwBall" class="action primary" title="Throw a ball"><span class="icon">⚾</span><span class="label">Ball</span></button>
+      <button id="feed" class="action" title="Feed PixelMate"><span class="icon">🥣</span><span class="label">Feed</span></button>
+      <button id="nap" class="action" title="Let PixelMate nap"><span class="icon">🌙</span><span class="label">Nap</span></button>
+      <button id="designAction" class="action" title="Open Design Mode"><span class="icon">🎨</span><span class="label">Design</span></button>
+    </div>
 
-        const { snapshot, settings, renderFrame, mode: runtimeMode, theme: runtimeTheme, personality: runtimePersonality, debug } = event.data.payload;
-        sprite.textContent = companionGlyphs[settings.companionType] ?? companionGlyphs.smiley;
-        companion.className = "companion behavior-" + snapshot.behavior;
-        sprite.setAttribute("aria-label", "PixelMate " + settings.companionType);
-        intent.textContent = "Intent: " + snapshot.intent;
-        behavior.textContent = "Behavior: " + snapshot.behavior;
-        lifecycle.textContent = "Lifecycle: " + snapshot.lifecycle;
-        personality.textContent = "Personality: " + snapshot.personality;
-        needs.textContent = "Needs: E" + Math.round(snapshot.needs.energy) + " C" + Math.round(snapshot.needs.curiosity) + " F" + Math.round(snapshot.needs.focus);
-        theme.textContent = "Theme: " + settings.theme;
-        cpu.textContent = "CPU hint: " + snapshot.metrics.idleCpuHint;
-        perf.textContent = "FPS: " + snapshot.metrics.fps.toFixed(1) + " | Frame: " + snapshot.metrics.frameTimeMs.toFixed(2) + "ms";
-        events.textContent = "Events: " + snapshot.metrics.eventsProcessed;
+    <section id="design" class="design">
+      <button id="designToggle" class="design-toggle"><span>🎨 Design Mode</span><span class="chevron">⌄</span></button>
+      <div class="design-content">
+        <div class="design-inner">
+          <div>
+            <div class="section-label">Companion</div>
+            <div id="companionChoices" class="choices">
+              <button class="choice" data-companion="dog"><span class="preview">🐶</span><span class="name">Dog</span></button>
+              <button class="choice" data-companion="cat"><span class="preview">🐱</span><span class="name">Cat</span></button>
+              <button class="choice" data-companion="horse"><span class="preview">🐴</span><span class="name">Horse</span></button>
+              <button class="choice" data-companion="smiley"><span class="preview">🙂</span><span class="name">Smiley</span></button>
+            </div>
+          </div>
+          <div>
+            <div class="section-label">Background Theme</div>
+            <div id="backgroundChoices" class="choices backgrounds">
+              <button class="choice background-choice" data-background="livingRoom"><span class="background-thumb bg-livingRoom"></span><span class="background-name">Living Room</span></button>
+              <button class="choice background-choice" data-background="outdoorGround"><span class="background-thumb bg-outdoorGround"></span><span class="background-name">Outdoor Ground</span></button>
+              <button class="choice background-choice" data-background="snowyMountains"><span class="background-thumb bg-snowyMountains"></span><span class="background-name">Snowy Mountains</span></button>
+              <button class="choice background-choice" data-background="greenMountains"><span class="background-thumb bg-greenMountains"></span><span class="background-name">Green Mountains</span></button>
+              <button class="choice background-choice" data-background="officeDesk"><span class="background-thumb bg-officeDesk"></span><span class="background-name">Office Desk</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="footnote">Wellness reminders appear gently inside the habitat while you code.</div>
+  </main>
 
-        const showDebug = Boolean(settings.debugMode || debug || runtimeMode === "design");
-        needs.style.display = showDebug ? "block" : "none";
-        perf.style.display = showDebug ? "block" : "none";
-        events.style.display = showDebug ? "block" : "none";
-        if (hud) hud.style.display = showDebug && runtimeMode !== "screenshot" ? "block" : "none";
-        if (debugPanel) debugPanel.style.display = runtimeMode === "design" ? "block" : "none";
-        if (stage) stage.style.background = runtimeMode === "screenshot" ? "transparent" : "";
-        if (companion) companion.style.boxShadow = "none";
-        document.body.style.background = runtimeMode === "screenshot" ? "transparent" : "";
-        mode.textContent = "Mode: " + runtimeMode;
-        queue.textContent = "Queue: " + (timelineEntries.length || 0);
-        lastEvent.textContent = "Last event: " + snapshot.debug.lastEventType;
-        timeline.textContent = "Timeline: " + JSON.stringify(timelineEntries.slice(-6));
+  <script>
+    const vscode = acquireVsCodeApi();
+    const companion = document.getElementById("companion");
+    const sprite = document.getElementById("sprite");
+    const shadow = document.getElementById("shadow");
+    const world = document.getElementById("world");
+    const ball = document.getElementById("ball");
+    const speech = document.getElementById("speech");
+    const statusText = document.getElementById("statusText");
+    const design = document.getElementById("design");
+    const designToggle = document.getElementById("designToggle");
+    const designAction = document.getElementById("designAction");
+    const habitatCompanion = document.getElementById("habitatCompanion");
+    const habitatLabel = document.getElementById("habitatLabel");
 
-        const x = Math.max(0.05, Math.min(0.95, settings.position.x));
-        const y = Math.max(0.2, Math.min(0.95, settings.position.y));
-        const scale = Math.max(0.5, Math.min(2, settings.scale));
-        const rotate = snapshot.behavior === "walk" ? " rotate(-4deg)" : "";
-        const bob = snapshot.behavior === "tinyBounce" || snapshot.behavior === "hop" ? " translateY(-4px)" : "";
+    const glyphs = { smiley: "🙂", cat: "🐱", dog: "🐶", horse: "🐴" };
+    const companionNames = { smiley: "Smiley", cat: "Cat", dog: "Dog", horse: "Horse" };
+    const backgroundNames = {
+      livingRoom: "Living Room",
+      outdoorGround: "Outdoor Ground",
+      snowyMountains: "Snowy Mountains",
+      greenMountains: "Green Mountains",
+      officeDesk: "Office Desk"
+    };
+    const backgroundClasses = Object.keys(backgroundNames).map((key) => "theme-" + key);
 
-        companion.style.left = (Math.floor(x * window.innerWidth) - 60) + "px";
-        companion.style.top = (Math.floor(y * window.innerHeight) - 60) + "px";
-        companion.style.transform = renderFrame.transform + rotate + bob;
-        companion.style.opacity = renderFrame.opacity;
+    let currentCompanion = "dog";
+    let currentBackground = "snowyMountains";
+    let currentX = 0.42;
+    let destinationX = currentX;
+    let locomotionTimer;
+    let speechTimer;
+    let sleeping = false;
+    let busyUntil = 0;
+    let latestSettings = { speechEnabled: true, reduceMotion: false };
 
-        if (settings.reduceMotion) {
-          sprite.style.animation = "none";
-        } else {
-          sprite.style.animation = "";
-        }
-
-        const now = Date.now();
-        const say = (text) => {
-          if (!speech || !settings.speechEnabled || runtimeMode === "screenshot") return;
-          speech.textContent = text;
-          speech.classList.add("visible");
-          clearTimeout(speechTimer);
-          speechTimer = setTimeout(() => speech.classList.remove("visible"), 2400);
-          lastSpeechAt = now;
-        };
-
-        if (!greeted && settings.speechEnabled) {
-          greeted = true;
-          say("Hi! I’m PixelMate 👋");
-        } else if (settings.speechEnabled && now - lastSpeechAt > 90000 && Math.random() < 0.035) {
-          const pool = phrases[snapshot.behavior] ?? phrases.default;
-          say(pool[Math.floor(Math.random() * pool.length)]);
-        }
-
-        const selected = themes[settings.theme] ?? themes.default;
-        document.documentElement.style.setProperty("--bg", selected.bg);
-        document.documentElement.style.setProperty("--accent", selected.accent);
-        companion.style.background = "transparent";
+    function post(action, extras) {
+      vscode.postMessage({
+        type: "pixelmate.ui",
+        payload: Object.assign({ action }, extras || {})
       });
+    }
 
-      window.addEventListener("message", (event) => {
-        if (!event.data || event.data.kind !== "event") {
-          return;
-        }
+    function say(message, duration) {
+      if (!latestSettings.speechEnabled || !message) return;
+      speech.textContent = message;
+      speech.classList.add("visible");
+      clearTimeout(speechTimer);
+      speechTimer = setTimeout(() => speech.classList.remove("visible"), duration || 4200);
+    }
 
-        const entry = {
-          timestamp: Date.now(),
-          event: event.data.message?.type ?? "unknown",
-          payload: event.data.message?.payload ?? {}
-        };
-        timelineEntries.push(entry);
-        if (timelineEntries.length > 24) {
-          timelineEntries.shift();
-        }
-        lastEvent.textContent = "Last event: " + entry.event;
-        queue.textContent = "Queue: " + timelineEntries.length;
-        timeline.textContent = "Timeline: " + JSON.stringify(timelineEntries.slice(-6));
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function setBackground(background) {
+      currentBackground = backgroundNames[background] ? background : "snowyMountains";
+      world.classList.remove(...backgroundClasses);
+      world.classList.add("theme-" + currentBackground);
+      updateLabel();
+      document.querySelectorAll("[data-background]").forEach((item) => {
+        item.classList.toggle("selected", item.dataset.background === currentBackground);
       });
+    }
 
-      exportButton.addEventListener("click", () => {
-        const blob = new Blob([JSON.stringify(timelineEntries, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "pixelmate-runtime-timeline.json";
-        anchor.click();
-        URL.revokeObjectURL(url);
+    function setCompanion(type) {
+      currentCompanion = glyphs[type] ? type : "smiley";
+      sprite.textContent = glyphs[currentCompanion];
+      habitatCompanion.textContent = glyphs[currentCompanion];
+      sprite.setAttribute("aria-label", "PixelMate " + companionNames[currentCompanion]);
+      updateLabel();
+      document.querySelectorAll("[data-companion]").forEach((item) => {
+        item.classList.toggle("selected", item.dataset.companion === currentCompanion);
       });
-    </script>
-  </body>
+    }
+
+    function updateLabel() {
+      habitatLabel.textContent = companionNames[currentCompanion] + " · " + backgroundNames[currentBackground];
+    }
+
+    function updateWorldPan() {
+      const normalized = (currentX - 0.5) / 0.5;
+      const pan = Math.max(-10, Math.min(10, normalized * -10));
+      world.style.transform = "translateX(" + pan + "%)";
+    }
+
+    function walkTo(target, onArrive) {
+      if (sleeping) return;
+      target = Math.max(0.14, Math.min(0.86, target));
+      const distance = Math.abs(target - currentX);
+      if (distance < 0.025) {
+        if (onArrive) onArrive();
+        return;
+      }
+
+      companion.classList.remove("excited", "sleeping");
+      companion.classList.add("moving");
+      companion.classList.toggle("flip", target < currentX);
+      setStatus("Exploring");
+      destinationX = target;
+      companion.style.left = (target * 100) + "%";
+      shadow.style.left = (target * 100) + "%";
+
+      const duration = Math.max(450, Math.min(1500, 500 + distance * 1200));
+      companion.style.transitionDuration = duration + "ms";
+      shadow.style.transitionDuration = duration + "ms";
+      clearTimeout(locomotionTimer);
+      locomotionTimer = setTimeout(() => {
+        currentX = destinationX;
+        companion.classList.remove("moving");
+        setStatus("Happy");
+        updateWorldPan();
+        if (onArrive) onArrive();
+      }, duration + 40);
+    }
+
+    function throwBall() {
+      sleeping = false;
+      companion.classList.remove("sleeping");
+      const target = 0.2 + Math.random() * 0.62;
+      ball.style.left = (target * 100) + "%";
+      ball.classList.add("visible");
+      busyUntil = Date.now() + 4000;
+      setStatus("Chasing");
+      say("Ball! 🐾", 1800);
+      post("throwBall");
+      setTimeout(() => {
+        walkTo(target, () => {
+          ball.classList.remove("visible");
+          companion.classList.add("excited");
+          setStatus("Excited");
+          say("Got it! 🎉", 2200);
+          setTimeout(() => companion.classList.remove("excited"), 1500);
+        });
+      }, 420);
+    }
+
+    function feed() {
+      sleeping = false;
+      companion.classList.remove("sleeping");
+      companion.classList.add("excited");
+      setStatus("Happy");
+      say("Yum! Thank you 🥣", 2400);
+      post("feed");
+      setTimeout(() => companion.classList.remove("excited"), 1500);
+    }
+
+    function nap() {
+      sleeping = true;
+      clearTimeout(locomotionTimer);
+      companion.classList.remove("moving", "excited");
+      companion.classList.add("sleeping");
+      setStatus("Sleeping");
+      say("Tiny nap… zzz 💤", 2300);
+      post("nap");
+    }
+
+    function toggleDesign() {
+      design.classList.toggle("open");
+    }
+
+    document.getElementById("throwBall").addEventListener("click", throwBall);
+    document.getElementById("feed").addEventListener("click", feed);
+    document.getElementById("nap").addEventListener("click", nap);
+    designToggle.addEventListener("click", toggleDesign);
+    designAction.addEventListener("click", () => {
+      design.classList.add("open");
+      design.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+
+    document.querySelectorAll("[data-companion]").forEach((item) => {
+      item.addEventListener("click", () => {
+        const type = item.dataset.companion;
+        setCompanion(type);
+        post("setCompanion", { companionType: type });
+        companion.classList.add("excited");
+        setTimeout(() => companion.classList.remove("excited"), 1000);
+      });
+    });
+
+    document.querySelectorAll("[data-background]").forEach((item) => {
+      item.addEventListener("click", () => {
+        const background = item.dataset.background;
+        setBackground(background);
+        post("setBackground", { background });
+      });
+    });
+
+    setInterval(() => {
+      if (sleeping || Date.now() < busyUntil) return;
+      if (Math.random() < 0.64) {
+        walkTo(0.16 + Math.random() * 0.68);
+      } else if (Math.random() < 0.35) {
+        companion.classList.add("excited");
+        setTimeout(() => companion.classList.remove("excited"), 850);
+      }
+    }, 5800);
+
+    window.addEventListener("message", (event) => {
+      if (!event.data) return;
+
+      if (event.data.type === "wellness") {
+        const payload = event.data.payload || {};
+        sleeping = false;
+        companion.classList.remove("sleeping");
+        setStatus(payload.kind === "stand" ? "Break time" : "Hydrate");
+        say(payload.message, 7600);
+        return;
+      }
+
+      if (event.data.type !== "snapshot") return;
+      const payload = event.data.payload || {};
+      const snapshot = payload.snapshot || {};
+      const settings = payload.settings || {};
+      latestSettings = settings;
+      setCompanion(settings.companionType || currentCompanion);
+      setBackground(payload.habitatBackground || currentBackground);
+
+      if (settings.reduceMotion) {
+        companion.style.transitionDuration = "0ms";
+        world.style.transitionDuration = "0ms";
+      }
+
+      if (!sleeping && snapshot.lifecycle === "sleeping") {
+        companion.classList.add("sleeping");
+        setStatus("Sleeping");
+      } else if (!sleeping && snapshot.behavior === "celebrate") {
+        companion.classList.add("excited");
+        setStatus("Excited");
+        setTimeout(() => companion.classList.remove("excited"), 1200);
+      }
+
+      if (payload.mode === "demo" && !sleeping) {
+        companion.classList.add("excited");
+      }
+    });
+
+    setCompanion(currentCompanion);
+    setBackground(currentBackground);
+    setTimeout(() => say("Ready to code? ✨", 2600), 650);
+  </script>
+</body>
 </html>`;
   }
 }
