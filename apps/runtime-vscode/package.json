@@ -218,24 +218,40 @@
           "type": "boolean",
           "default": true,
           "description": "Allow PixelMate to sleep after inactivity."
+        },
+        "pixelmate.companion.background": {
+          "type": "string",
+          "default": "snowyMountains",
+          "enum": [
+            "livingRoom",
+            "outdoorGround",
+            "snowyMountains",
+            "greenMountains",
+            "officeDesk"
+          ],
+          "enumDescriptions": [
+            "Cozy living room",
+            "Sunny outdoor ground",
+            "Snowy mountain landscape",
+            "Green mountain landscape",
+            "Developer office desk"
+          ],
+          "description": "Choose the built-in PixelMate habitat background."
+        },
+        "pixelmate.companion.wellnessReminders": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show friendly hydration and stand-up reminders during active coding sessions."
         }
       }
     },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "pixelmate",
-          "title": "PixelMate",
-          "icon": "assets/activitybar-icon.svg"
-        }
-      ]
-    },
     "views": {
-      "pixelmate": [
+      "explorer": [
         {
           "type": "webview",
           "id": "pixelmate.companionView",
-          "name": "Companion"
+          "name": "PixelMate",
+          "contextualTitle": "PixelMate Companion"
         }
       ]
     },
