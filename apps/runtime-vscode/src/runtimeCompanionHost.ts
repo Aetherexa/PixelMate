@@ -143,7 +143,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   }
 
   public show(): void {
-    void vscode.commands.executeCommand("workbench.view.extension.pixelmate");
+    void vscode.commands.executeCommand("workbench.view.explorer");
     void vscode.commands.executeCommand("pixelmate.companionView.focus");
   }
 
@@ -303,6 +303,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private attachRuntimeEvents(): void {
     this.disposables.push(
       vscode.window.onDidChangeWindowState((state) => {
+        this.windowFocused = state.focused;
         this.handleActivity(state.focused ? "windowFocus" : "windowBlur");
       })
     );
@@ -392,6 +393,8 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
         this.kernel.handleEvent({ type: "cursorIdle", at: now });
       }
 
+      this.updateWellnessSession(deltaMs, now);
+
       if (this.panel === undefined && this.view === undefined) {
         return;
       }
@@ -399,6 +402,46 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
       const snapshot = this.kernel.tick(deltaMs);
       this.renderSnapshot(snapshot);
     }, 220);
+  }
+
+  private updateWellnessSession(deltaMs: number, now: number): void {
+    const config = vscode.workspace.getConfiguration(CONFIG_ROOT);
+    const remindersEnabled = config.get<boolean>("wellnessReminders", true);
+    const recentlyActive = now - this.lastActivityAt <= ACTIVE_WINDOW_MS;
+
+    if (!remindersEnabled || !this.windowFocused || !recentlyActive) {
+      return;
+    }
+
+    this.activeCycleMs += deltaMs;
+
+    if (this.activeCycleMs >= STAND_INTERVAL_MS) {
+      this.postWellnessMessage(
+        "stand",
+        "You’ve been coding for an hour. Stand up, stretch, or take a short walk 🚶"
+      );
+      this.activeCycleMs = 0;
+      this.nextHydrationReminderAt = HYDRATION_INTERVAL_MS;
+      return;
+    }
+
+    if (this.activeCycleMs >= this.nextHydrationReminderAt) {
+      this.postWellnessMessage(
+        "hydrate",
+        "Hydration check 💧 Rest your eyes for a moment and grab some water."
+      );
+      this.nextHydrationReminderAt += HYDRATION_INTERVAL_MS;
+    }
+  }
+
+  private postWellnessMessage(kind: "hydrate" | "stand", message: string): void {
+    this.postToCompanion({
+      type: "wellness",
+      payload: {
+        kind,
+        message
+      }
+    });
   }
 
   private handleActivity(
@@ -466,6 +509,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     };
 
     this.kernel.updateSettings(nextSettings);
+    this.currentBackground = config.get<HabitatBackground>("background", "snowyMountains");
   }
 
   private hasAnyErrors(): boolean {
@@ -507,6 +551,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
         mode: this.currentMode,
         theme: this.currentTheme,
         personality: this.currentPersonality,
+        habitatBackground: this.currentBackground,
         debug: this.currentMode === "design"
       }
     });
