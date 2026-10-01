@@ -45,8 +45,9 @@ class WorkspacePersistence implements CompanionPersistence {
   }
 }
 
-export class RuntimeCompanionHost implements vscode.Disposable {
+export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewViewProvider {
   private panel: vscode.WebviewPanel | undefined;
+  private view: vscode.WebviewView | undefined;
   private timer: NodeJS.Timeout | undefined;
   private typingDebounceTimer: NodeJS.Timeout | undefined;
   private readonly kernel: PixelMateCompanionKernel;
@@ -124,46 +125,40 @@ export class RuntimeCompanionHost implements vscode.Disposable {
     this.applySettingsFromConfiguration();
     this.attachRuntimeEvents();
     this.attachMessageRouting();
-    this.show();
     this.startTickLoop();
   }
 
   public show(): void {
-    if (this.panel !== undefined) {
-      this.panel.reveal(vscode.ViewColumn.Beside, true);
-      return;
-    }
+    void vscode.commands.executeCommand("workbench.view.extension.pixelmate");
+    void vscode.commands.executeCommand("pixelmate.companionView.focus");
+  }
 
-    this.panel = vscode.window.createWebviewPanel(
-      "pixelmate.referenceCompanion",
-      "PixelMate Companion",
-      {
-        viewColumn: vscode.ViewColumn.Beside,
-        preserveFocus: true
-      },
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true
-      }
-    );
-
-    this.panel.webview.html = this.getWebviewHtml();
-    this.panel.webview.onDidReceiveMessage(
+  public resolveWebviewView(webviewView: vscode.WebviewView): void {
+    this.view = webviewView;
+    this.view.webview.options = {
+      enableScripts: true
+    };
+    this.view.webview.html = this.getWebviewHtml();
+    this.view.webview.onDidReceiveMessage(
       (message) => {
         this.handleWebviewMessage(message);
       },
       undefined,
       this.disposables
     );
-    this.panel.onDidDispose(
+    this.view.onDidChangeVisibility(
       () => {
-        this.panel = undefined;
-        this.isReady = false;
+        if (this.view?.visible === true) {
+          this.isReady = true;
+          this.flushQueuedMessages();
+          this.renderSnapshot(this.kernel.tick(0));
+        }
       },
       undefined,
       this.disposables
     );
 
+    this.isReady = true;
     this.flushQueuedMessages();
     this.renderSnapshot(this.kernel.tick(0));
   }
@@ -186,6 +181,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
     this.clearDemoLoop();
     this.panel?.dispose();
     this.panel = undefined;
+    this.view = undefined;
     this.pendingMessages.length = 0;
     this.kernel.handleEvent({ type: "workspaceClosed", at: Date.now() });
     this.kernel.stop();
@@ -265,8 +261,8 @@ export class RuntimeCompanionHost implements vscode.Disposable {
   private attachMessageRouting(): void {
     this.messageBus.use((message, next) => {
       this.pendingMessages.push(message);
-      if (this.isReady && this.panel !== undefined) {
-        this.panel.webview.postMessage(createRuntimeEnvelope("event", message));
+      if (this.isReady) {
+        this.postToCompanion(createRuntimeEnvelope("event", message));
       }
       next();
     });
@@ -382,7 +378,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         this.kernel.handleEvent({ type: "cursorIdle", at: now });
       }
 
-      if (this.panel === undefined) {
+      if (this.panel === undefined && this.view === undefined) {
         return;
       }
 
@@ -471,7 +467,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
   }
 
   private renderSnapshot(snapshot: CompanionSnapshot): void {
-    if (this.panel === undefined) {
+    if (this.panel === undefined && this.view === undefined) {
       return;
     }
 
@@ -488,7 +484,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
       mirrored: snapshot.behavior === "walk"
     });
 
-    this.panel.webview.postMessage({
+    this.postToCompanion({
       type: "snapshot",
       payload: {
         snapshot,
@@ -520,7 +516,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         if (mode === "demo") {
           this.startDemoLoop();
         }
-        this.panel?.webview.postMessage(
+        this.postToCompanion(
           createRuntimeEnvelope(
             "event",
             createRuntimeMessage(RUNTIME_MESSAGE_TYPES.ACK, { mode }, "runtime", "webview")
@@ -554,7 +550,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         this.kernel.handleEvent({ type: "activity", at: Date.now(), payload: { frozen: false } });
         break;
       case RUNTIME_MESSAGE_TYPES.CAPTURE_SCREENSHOT:
-        this.panel?.webview.postMessage(
+        this.postToCompanion(
           createRuntimeEnvelope(
             "event",
             createRuntimeMessage(
@@ -574,7 +570,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
         });
         break;
       case RUNTIME_MESSAGE_TYPES.PING:
-        this.panel?.webview.postMessage(createRuntimeEnvelope("response", message));
+        this.postToCompanion(createRuntimeEnvelope("response", message));
         break;
       default:
         break;
@@ -686,7 +682,7 @@ export class RuntimeCompanionHost implements vscode.Disposable {
   }
 
   private flushQueuedMessages(): void {
-    if (this.panel === undefined) {
+    if (this.panel === undefined && this.view === undefined) {
       return;
     }
 
@@ -694,9 +690,14 @@ export class RuntimeCompanionHost implements vscode.Disposable {
     while (this.pendingMessages.length > 0) {
       const queued = this.pendingMessages.shift();
       if (queued !== undefined) {
-        this.panel.webview.postMessage(createRuntimeEnvelope("event", queued));
+        this.postToCompanion(createRuntimeEnvelope("event", queued));
       }
     }
+  }
+
+  private postToCompanion(message: unknown): void {
+    void this.panel?.webview.postMessage(message);
+    void this.view?.webview.postMessage(message);
   }
 
   private recordTimeline(event: string, payload: unknown, startedAt: number): void {
