@@ -16,6 +16,7 @@ const getConfiguration = vi.fn(() => ({
   update: updateConfiguration
 }));
 const registerCommand = vi.fn();
+const registerWebviewViewProvider = vi.fn(() => ({ dispose: () => undefined }));
 const show = vi.fn();
 const dispose = vi.fn();
 const send = vi.fn();
@@ -36,7 +37,8 @@ vi.mock("vscode", () => ({
   },
   window: {
     showInformationMessage,
-    showQuickPick
+    showQuickPick,
+    registerWebviewViewProvider
   },
   workspace: {
     getConfiguration
@@ -53,6 +55,7 @@ describe("runtime-vscode extension", () => {
     updateConfiguration.mockClear();
     getConfiguration.mockClear();
     registerCommand.mockClear();
+    registerWebviewViewProvider.mockClear();
     show.mockClear();
     dispose.mockClear();
     send.mockClear();
@@ -74,10 +77,20 @@ describe("runtime-vscode extension", () => {
     activate(context);
 
     expect(registerCommand).toHaveBeenCalledTimes(6);
+    expect(registerWebviewViewProvider).toHaveBeenCalledTimes(1);
+    expect(registerWebviewViewProvider).toHaveBeenCalledWith(
+      "pixelmate.companionView",
+      expect.anything(),
+      {
+        webviewOptions: {
+          retainContextWhenHidden: true
+        }
+      }
+    );
     expect(handlers.has(PIXELMATE_ALIVE_COMMAND)).toBe(true);
     expect(handlers.has(PIXELMATE_SHOW_COMPANION_COMMAND)).toBe(true);
     expect(handlers.has(PIXELMATE_SELECT_COMPANION_COMMAND)).toBe(true);
-    expect(context.subscriptions.length).toBe(7);
+    expect(context.subscriptions.length).toBe(8);
 
     const aliveHandler = handlers.get(PIXELMATE_ALIVE_COMMAND);
     const showHandler = handlers.get(PIXELMATE_SHOW_COMPANION_COMMAND);
