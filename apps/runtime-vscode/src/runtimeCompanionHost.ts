@@ -639,10 +639,19 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private handleWebviewMessage(message: unknown): void {
     const webviewMessage = message as {
       type?: string;
-      payload?: RuntimeCommandPayload;
+      payload?: RuntimeCommandPayload & {
+        action?: string;
+        companionType?: CompanionSettings["companionType"];
+        background?: HabitatBackground;
+      };
       requestId?: string;
     };
     if (webviewMessage.type === undefined) {
+      return;
+    }
+
+    if (webviewMessage.type === "pixelmate.ui") {
+      this.handleUiAction(webviewMessage.payload ?? {});
       return;
     }
 
@@ -656,6 +665,46 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     }
 
     this.webviewBridge.receive({ type: webviewMessage.type, payload: webviewMessage.payload });
+  }
+
+  private handleUiAction(
+    payload: RuntimeCommandPayload & {
+      action?: string;
+      companionType?: CompanionSettings["companionType"];
+      background?: HabitatBackground;
+    }
+  ): void {
+    switch (payload.action) {
+      case "setCompanion":
+        if (payload.companionType !== undefined) {
+          void vscode.workspace
+            .getConfiguration(CONFIG_ROOT)
+            .update("type", payload.companionType, vscode.ConfigurationTarget.Global);
+        }
+        break;
+      case "setBackground":
+        if (payload.background !== undefined) {
+          this.currentBackground = payload.background;
+          void vscode.workspace
+            .getConfiguration(CONFIG_ROOT)
+            .update("background", payload.background, vscode.ConfigurationTarget.Global);
+          this.renderSnapshot(this.kernel.tick(0));
+        }
+        break;
+      case "feed":
+        this.kernel.handleEvent({ type: "activity", at: Date.now(), payload: { interaction: "feed" } });
+        this.playAnimation("celebrate");
+        break;
+      case "nap":
+        this.kernel.handleEvent({ type: "idleTimeout", at: Date.now(), payload: { interaction: "nap" } });
+        break;
+      case "throwBall":
+        this.kernel.handleEvent({ type: "activity", at: Date.now(), payload: { interaction: "throwBall" } });
+        this.playAnimation("walk");
+        break;
+      default:
+        break;
+    }
   }
 
   private applyModeState(mode: RuntimeMode): void {
