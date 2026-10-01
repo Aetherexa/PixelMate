@@ -1133,8 +1133,11 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     let currentCompanion = "dog";
     let currentBackground = "snowyMountains";
     let currentX = 0.42;
+    let currentBottom = 22;
     let destinationX = currentX;
     let locomotionTimer;
+    let wanderTimer;
+    let microTimer;
     let speechTimer;
     let sleeping = false;
     let busyUntil = 0;
@@ -1174,6 +1177,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
       sprite.textContent = glyphs[currentCompanion];
       habitatCompanion.textContent = glyphs[currentCompanion];
       sprite.setAttribute("aria-label", "PixelMate " + companionNames[currentCompanion]);
+      companion.dataset.kind = currentCompanion;
       updateLabel();
       document.querySelectorAll("[data-companion]").forEach((item) => {
         item.classList.toggle("selected", item.dataset.companion === currentCompanion);
@@ -1184,13 +1188,18 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
       habitatLabel.textContent = companionNames[currentCompanion] + " · " + backgroundNames[currentBackground];
     }
 
-    function updateWorldPan() {
-      const normalized = (currentX - 0.5) / 0.5;
-      const pan = Math.max(-10, Math.min(10, normalized * -10));
-      world.style.transform = "translateX(" + pan + "%)";
+    function updateWorldPan(position) {
+      const x = typeof position === "number" ? position : currentX;
+      const normalized = (x - 0.5) / 0.5;
+      const pan = Math.max(-11, Math.min(11, normalized * -11));
+      world.style.transform = "translateX(" + pan + "%) scale(1.025)";
     }
 
-    function walkTo(target, onArrive) {
+    function clearMicroMotion() {
+      companion.classList.remove("micro-look", "micro-stretch", "micro-bounce", "zoomies");
+    }
+
+    function walkTo(target, onArrive, fast) {
       if (sleeping) return;
       target = Math.max(0.14, Math.min(0.86, target));
       const distance = Math.abs(target - currentX);
@@ -1199,25 +1208,60 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
         return;
       }
 
+      clearMicroMotion();
       companion.classList.remove("excited", "sleeping");
-      companion.classList.add("moving");
+      companion.classList.add(fast ? "zoomies" : "moving");
       companion.classList.toggle("flip", target < currentX);
-      setStatus("Exploring");
+      setStatus(fast ? "Zooming" : "Exploring");
       destinationX = target;
-      companion.style.left = (target * 100) + "%";
-      shadow.style.left = (target * 100) + "%";
 
-      const duration = Math.max(450, Math.min(1500, 500 + distance * 1200));
+      const nextBottom = 18 + Math.round(Math.random() * 16);
+      currentBottom = nextBottom;
+      companion.style.left = (target * 100) + "%";
+      companion.style.bottom = nextBottom + "px";
+      shadow.style.left = (target * 100) + "%";
+      updateWorldPan(target);
+
+      const duration = fast
+        ? Math.max(320, Math.min(850, 320 + distance * 650))
+        : Math.max(650, Math.min(1650, 650 + distance * 1350));
       companion.style.transitionDuration = duration + "ms";
       shadow.style.transitionDuration = duration + "ms";
       clearTimeout(locomotionTimer);
       locomotionTimer = setTimeout(() => {
         currentX = destinationX;
-        companion.classList.remove("moving");
+        companion.classList.remove("moving", "zoomies");
         setStatus("Happy");
-        updateWorldPan();
         if (onArrive) onArrive();
       }, duration + 40);
+    }
+
+    function playMicroAnimation() {
+      if (sleeping || Date.now() < busyUntil || companion.classList.contains("moving") || companion.classList.contains("zoomies")) {
+        return;
+      }
+      clearMicroMotion();
+      const motions = ["micro-look", "micro-stretch", "micro-bounce"];
+      const motion = motions[Math.floor(Math.random() * motions.length)];
+      companion.classList.add(motion);
+      clearTimeout(microTimer);
+      microTimer = setTimeout(() => companion.classList.remove(motion), 1450);
+    }
+
+    function scheduleWander() {
+      clearTimeout(wanderTimer);
+      const delay = 1800 + Math.random() * 2600;
+      wanderTimer = setTimeout(() => {
+        if (!sleeping && Date.now() >= busyUntil) {
+          const roll = Math.random();
+          if (roll < 0.68) {
+            walkTo(0.15 + Math.random() * 0.7, undefined, Math.random() < 0.16);
+          } else {
+            playMicroAnimation();
+          }
+        }
+        scheduleWander();
+      }, delay);
     }
 
     function throwBall() {
@@ -1233,6 +1277,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
       setTimeout(() => {
         walkTo(target, () => {
           ball.classList.remove("visible");
+          clearMicroMotion();
           companion.classList.add("excited");
           setStatus("Excited");
           say("Got it! 🎉", 2200);
@@ -1292,15 +1337,12 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
       });
     });
 
-    setInterval(() => {
-      if (sleeping || Date.now() < busyUntil) return;
-      if (Math.random() < 0.64) {
-        walkTo(0.16 + Math.random() * 0.68);
-      } else if (Math.random() < 0.35) {
-        companion.classList.add("excited");
-        setTimeout(() => companion.classList.remove("excited"), 850);
+    scheduleWander();
+    setTimeout(() => {
+      if (!sleeping) {
+        walkTo(0.66, undefined, false);
       }
-    }, 5800);
+    }, 950);
 
     window.addEventListener("message", (event) => {
       if (!event.data) return;
@@ -1343,6 +1385,7 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
 
     setCompanion(currentCompanion);
     setBackground(currentBackground);
+    updateWorldPan(currentX);
     setTimeout(() => say("Ready to code? ✨", 2600), 650);
   </script>
 </body>
