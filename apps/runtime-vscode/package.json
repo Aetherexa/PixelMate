@@ -237,7 +237,7 @@
     "publish:vsce": "vsce publish"
   },
   "devDependencies": {
-    "@types/vscode": "^1.94.0",
+    "@types/vscode": "^1.138.0",
     "@vscode/vsce": "^2.31.1",
     "esbuild": "^0.28.1",
     "rimraf": "^6.0.1"
