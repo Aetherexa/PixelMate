@@ -898,73 +898,45 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
       background: #10253d;
     }
     .world {
-      position: absolute; inset: 0 auto 0 -22%; width: 144%; height: 100%;
-      transition: transform 700ms cubic-bezier(.2,.8,.2,1), filter 300ms ease;
-      transform: translateX(0);
+      position: absolute;
+      inset: 0 auto 0 -22%;
+      width: 144%;
+      height: 100%;
+      transform: translateX(0) scale(1.025);
+      transform-origin: 50% 70%;
+      transition: transform 1000ms cubic-bezier(.22,.8,.22,1), filter 300ms ease;
       background-size: cover;
+      background-position: center bottom;
+      background-repeat: no-repeat;
+      will-change: transform;
     }
-    .world::before, .world::after { content: ""; position: absolute; pointer-events: none; }
-    .theme-snowyMountains {
-      background:
-        radial-gradient(circle at 18% 15%, rgba(255,255,255,.88) 0 1px, transparent 2px),
-        radial-gradient(circle at 67% 22%, rgba(255,255,255,.7) 0 1px, transparent 2px),
-        radial-gradient(circle at 83% 9%, rgba(255,255,255,.74) 0 1px, transparent 2px),
-        linear-gradient(180deg,#071b37 0%,#183d70 48%,#dbeafe 49%,#eff6ff 100%);
+    .world::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,.08) 43%, transparent 63%);
+      transform: translateX(-120%);
+      animation: sceneLight 13s ease-in-out infinite;
+      mix-blend-mode: screen;
     }
-    .theme-snowyMountains::before {
-      left: 0; right: 0; bottom: 39px; height: 112px;
-      background: linear-gradient(145deg,transparent 0 15%,#6478bd 15% 29%,#dbeafe 29% 36%,#6b72b5 36% 48%,#eef2ff 48% 55%,#5b6f9f 55% 68%,transparent 68%);
-      opacity: .95;
+    .world::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(6,18,35,.03), transparent 45%, rgba(3,10,20,.12));
     }
-    .theme-snowyMountains::after {
-      left: 0; right: 0; bottom: 0; height: 62px;
-      background: linear-gradient(180deg,#dbeafe,#bfdbfe 56%,#eff6ff 57%);
-      clip-path: polygon(0 21%,16% 8%,29% 24%,44% 7%,59% 23%,75% 6%,100% 20%,100% 100%,0 100%);
-    }
-    .theme-greenMountains {
-      background: linear-gradient(180deg,#63b3ed 0%,#b9e7fb 46%,#84cc7c 47%,#2f855a 100%);
-    }
-    .theme-greenMountains::before {
-      left:0; right:0; bottom:51px; height:120px;
-      background: linear-gradient(145deg,transparent 0 12%,#4d7c5d 12% 25%,#86b779 25% 36%,#3f6f58 36% 49%,#8ccf7b 49% 60%,#416b57 60% 72%,transparent 72%);
-    }
-    .theme-greenMountains::after {
-      left:0; right:0; bottom:0; height:67px;
-      background: linear-gradient(180deg,#65a30d,#3f7d20);
-    }
-    .theme-outdoorGround {
-      background: linear-gradient(180deg,#7dd3fc 0%,#d9f99d 57%,#65a30d 58%,#3f6212 100%);
-    }
-    .theme-outdoorGround::before {
-      left: 5%; right: 5%; top: 30px; height: 60px;
-      background: radial-gradient(ellipse at 15% 80%,#15803d 0 18%,transparent 19%),
-                  radial-gradient(ellipse at 78% 75%,#166534 0 20%,transparent 21%);
-    }
-    .theme-outdoorGround::after {
-      left:0; right:0; bottom:14px; height:10px;
-      background: repeating-linear-gradient(90deg,rgba(255,255,255,.22) 0 3px,transparent 3px 14px);
-    }
-    .theme-livingRoom {
-      background: linear-gradient(180deg,#d97745 0%,#a84b31 56%,#79472d 57%,#4b2d20 100%);
-    }
-    .theme-livingRoom::before {
-      width: 78px; height: 58px; left: 12%; top: 42px; border-radius: 6px;
-      background: #f0c8a6; border: 7px solid #6b3a25; box-shadow: 210px 36px 0 -11px #2f6846;
-    }
-    .theme-livingRoom::after {
-      left:0; right:0; bottom:42px; height:4px; background: rgba(255,255,255,.15);
-      box-shadow: 0 22px 0 rgba(255,255,255,.05),0 44px 0 rgba(255,255,255,.04);
-    }
-    .theme-officeDesk {
-      background: linear-gradient(180deg,#26364d 0%,#34495e 54%,#7b5132 55%,#4b2e1e 100%);
-    }
-    .theme-officeDesk::before {
-      width: 118px; height: 68px; left: 17%; top: 37px; border-radius: 5px;
-      background: #091827; border: 7px solid #111827; box-shadow: 170px 30px 0 -24px #397b55;
-    }
-    .theme-officeDesk::after {
-      left:0; right:0; bottom:45px; height:7px; background:#9a6743;
-      box-shadow: 0 7px 0 #52331f;
+    .theme-livingRoom { background-image: url("${habitatUris.livingRoom}"); }
+    .theme-outdoorGround { background-image: url("${habitatUris.outdoorGround}"); }
+    .theme-snowyMountains { background-image: url("${habitatUris.snowyMountains}"); }
+    .theme-greenMountains { background-image: url("${habitatUris.greenMountains}"); }
+    .theme-officeDesk { background-image: url("${habitatUris.officeDesk}"); }
+    @keyframes sceneLight {
+      0%, 58% { transform: translateX(-120%); opacity: 0; }
+      68% { opacity: .45; }
+      86% { transform: translateX(120%); opacity: .15; }
+      100% { transform: translateX(120%); opacity: 0; }
     }
     .habitat-vignette {
       position:absolute; inset:0; pointer-events:none;
@@ -979,22 +951,33 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     .companion {
       position:absolute; width:70px; height:70px; left:42%; bottom:22px;
       display:grid; place-items:center; transform:translateX(-50%);
-      transition:left 900ms cubic-bezier(.25,.8,.25,1);
-      z-index:4; user-select:none;
+      transition:left 900ms cubic-bezier(.25,.8,.25,1), bottom 700ms cubic-bezier(.25,.8,.25,1);
+      z-index:4; user-select:none; will-change:left,bottom;
     }
     .sprite {
       font-size:52px; line-height:1; transform-origin:50% 85%;
       filter:drop-shadow(0 8px 6px rgba(0,0,0,.28));
+      animation: idleBob 2.2s ease-in-out infinite;
     }
-    .companion.moving .sprite { animation: walk .42s ease-in-out infinite; }
-    .companion.excited .sprite { animation: excited .48s ease-in-out 3; }
+    .companion.moving .sprite { animation: walk .36s ease-in-out infinite; }
+    .companion.excited .sprite { animation: excited .46s ease-in-out 3; }
     .companion.sleeping .sprite { animation: breathe 2.2s ease-in-out infinite; filter:grayscale(.08) drop-shadow(0 7px 6px rgba(0,0,0,.25)); }
+    .companion.micro-look .sprite { animation: lookAround 1.15s ease-in-out 1; }
+    .companion.micro-stretch .sprite { animation: stretch 1.05s ease-in-out 1; }
+    .companion.micro-bounce .sprite { animation: tinyBounce .7s ease-in-out 2; }
+    .companion.zoomies .sprite { animation: zoomies .24s ease-in-out infinite; }
     .companion.flip .sprite { transform:scaleX(-1); }
-    .companion.flip.moving .sprite { animation: walkFlip .42s ease-in-out infinite; }
-    @keyframes walk { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-5px) rotate(2deg)} }
-    @keyframes walkFlip { 0%,100%{transform:scaleX(-1) translateY(0) rotate(-2deg)} 50%{transform:scaleX(-1) translateY(-5px) rotate(2deg)} }
-    @keyframes excited { 0%,100%{transform:translateY(0) scale(1)} 45%{transform:translateY(-12px) scale(1.08)} 70%{transform:translateY(1px) scale(.96)} }
+    .companion.flip.moving .sprite,
+    .companion.flip.zoomies .sprite { animation-name: walkFlip; }
+    @keyframes idleBob { 0%,100%{transform:translateY(0) rotate(0)} 50%{transform:translateY(-3px) rotate(.8deg)} }
+    @keyframes walk { 0%,100%{transform:translateY(0) rotate(-3deg) scaleY(1)} 50%{transform:translateY(-6px) rotate(3deg) scaleY(.96)} }
+    @keyframes walkFlip { 0%,100%{transform:scaleX(-1) translateY(0) rotate(-3deg)} 50%{transform:scaleX(-1) translateY(-6px) rotate(3deg)} }
+    @keyframes excited { 0%,100%{transform:translateY(0) scale(1)} 38%{transform:translateY(-13px) scale(1.1,.94)} 68%{transform:translateY(1px) scale(.96,1.06)} }
     @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04,.96)} }
+    @keyframes lookAround { 0%,100%{transform:translateX(0) rotate(0)} 30%{transform:translateX(-4px) rotate(-7deg)} 65%{transform:translateX(4px) rotate(7deg)} }
+    @keyframes stretch { 0%,100%{transform:scale(1)} 45%{transform:scaleX(1.12) scaleY(.88) translateY(3px)} }
+    @keyframes tinyBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    @keyframes zoomies { 0%,100%{transform:translateY(0) rotate(-4deg)} 50%{transform:translateY(-7px) rotate(4deg)} }
     .ball {
       position:absolute; width:18px; height:18px; border-radius:50%; bottom:29px; left:72%;
       z-index:3; opacity:0; transform:scale(.3);
@@ -1054,11 +1037,12 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     .background-choice { padding:0; overflow:hidden; text-align:left; }
     .background-thumb { display:block; height:38px; }
     .background-name { display:block; padding:5px 6px; font-size:9px; }
-    .bg-livingRoom { background:linear-gradient(160deg,#e48a55,#873c2a 58%,#58331f 59%); }
-    .bg-outdoorGround { background:linear-gradient(#7dd3fc 0 55%,#65a30d 56%); }
-    .bg-snowyMountains { background:linear-gradient(#183d70 0 55%,#dbeafe 56%); }
-    .bg-greenMountains { background:linear-gradient(#71c6ea 0 50%,#4d8b55 51%); }
-    .bg-officeDesk { background:linear-gradient(#33465d 0 55%,#70482e 56%); }
+    .background-thumb { background-size:cover; background-position:center; }
+    .bg-livingRoom { background-image:url("${habitatUris.livingRoom}"); }
+    .bg-outdoorGround { background-image:url("${habitatUris.outdoorGround}"); }
+    .bg-snowyMountains { background-image:url("${habitatUris.snowyMountains}"); }
+    .bg-greenMountains { background-image:url("${habitatUris.greenMountains}"); }
+    .bg-officeDesk { background-image:url("${habitatUris.officeDesk}"); }
     .footnote { color:var(--muted); font-size:9px; line-height:1.35; text-align:center; padding:1px 6px 3px; }
     @media (prefers-reduced-motion: reduce) {
       .world,.companion,.ground-shadow,.sprite,.ball { animation:none!important; transition:none!important; }
