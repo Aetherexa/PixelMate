@@ -3,29 +3,71 @@
   "tasks": [
     {
       "label": "Install",
-      "type": "shell",
-      "command": "pnpm install",
+      "type": "process",
+      "command": "pnpm",
+      "args": ["install"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "build",
       "problemMatcher": []
     },
     {
-      "label": "Build",
-      "type": "shell",
-      "command": "pnpm build",
+      "label": "Build PixelMate Runtime",
+      "type": "process",
+      "command": "pnpm",
+      "args": [
+        "-r",
+        "--filter",
+        "pixelmate-runtime-vscode...",
+        "--if-present",
+        "run",
+        "build"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$tsc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "Build All",
+      "type": "process",
+      "command": "pnpm",
+      "args": ["-r", "--if-present", "run", "build"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "build",
-      "problemMatcher": []
+      "problemMatcher": ["$tsc"]
     },
     {
       "label": "Lint",
-      "type": "shell",
-      "command": "pnpm lint",
+      "type": "process",
+      "command": "pnpm",
+      "args": ["lint"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "test",
       "problemMatcher": []
     },
     {
       "label": "Test",
-      "type": "shell",
-      "command": "pnpm test",
+      "type": "process",
+      "command": "pnpm",
+      "args": ["test"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "test",
       "problemMatcher": []
     }

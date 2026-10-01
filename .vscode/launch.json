@@ -12,7 +12,25 @@
       "outFiles": [
         "${workspaceFolder}/apps/runtime-vscode/dist/**/*.js"
       ],
-      "preLaunchTask": "Build"
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/apps/runtime-vscode/**",
+        "!${workspaceFolder}/**/node_modules/**"
+      ],
+      "preLaunchTask": "Build PixelMate Runtime"
+    },
+    {
+      "name": "Run PixelMate Runtime (No Build)",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/apps/runtime-vscode"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/apps/runtime-vscode/dist/**/*.js"
+      ],
+      "sourceMaps": true
     }
   ]
 }
