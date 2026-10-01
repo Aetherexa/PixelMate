@@ -16,6 +16,16 @@ let host: RuntimeCompanionHost | undefined;
 export function activate(context: vscode.ExtensionContext): void {
   host = new RuntimeCompanionHost(context);
 
+  const companionView = vscode.window.registerWebviewViewProvider(
+    "pixelmate.companionView",
+    host,
+    {
+      webviewOptions: {
+        retainContextWhenHidden: true
+      }
+    }
+  );
+
   const aliveCommand = vscode.commands.registerCommand(PIXELMATE_ALIVE_COMMAND, () => {
     host?.send(
       createRuntimeMessage(
@@ -77,6 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    companionView,
     aliveCommand,
     showCompanionCommand,
     demoModeCommand,
