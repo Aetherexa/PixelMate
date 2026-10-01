@@ -65,7 +65,8 @@
     "onCommand:pixelmate.demoMode",
     "onCommand:pixelmate.screenshotMode",
     "onCommand:pixelmate.designMode",
-    "onCommand:pixelmate.selectCompanion"
+    "onCommand:pixelmate.selectCompanion",
+    "onView:pixelmate.companionView"
   ],
   "contributes": {
     "commands": [
@@ -219,6 +220,33 @@
           "description": "Allow PixelMate to sleep after inactivity."
         }
       }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pixelmate",
+          "title": "PixelMate",
+          "icon": "assets/activitybar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "pixelmate": [
+        {
+          "type": "webview",
+          "id": "pixelmate.companionView",
+          "name": "Companion"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "pixelmate.selectCompanion",
+          "when": "view == pixelmate.companionView",
+          "group": "navigation"
+        }
+      ]
     }
   },
   "scripts": {
