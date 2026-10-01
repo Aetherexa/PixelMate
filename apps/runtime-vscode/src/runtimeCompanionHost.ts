@@ -22,6 +22,16 @@ import { WebviewBridge } from "./runtime/webviewBridge.js";
 
 const CONFIG_ROOT = "pixelmate.companion";
 const IDLE_THRESHOLD_MS = 60_000;
+const ACTIVE_WINDOW_MS = 120_000;
+const HYDRATION_INTERVAL_MS = 20 * 60_000;
+const STAND_INTERVAL_MS = 60 * 60_000;
+
+type HabitatBackground =
+  | "livingRoom"
+  | "outdoorGround"
+  | "snowyMountains"
+  | "greenMountains"
+  | "officeDesk";
 
 function isPersonalityId(value: unknown): value is CompanionSettings["personality"] {
   return (
@@ -78,6 +88,10 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
   private lastTickAt = Date.now();
   private lastActivityAt = Date.now();
   private lastRenderAt = Date.now();
+  private currentBackground: HabitatBackground = "snowyMountains";
+  private windowFocused = true;
+  private activeCycleMs = 0;
+  private nextHydrationReminderAt = HYDRATION_INTERVAL_MS;
   private readonly disposables: vscode.Disposable[] = [];
 
   public constructor(context: vscode.ExtensionContext) {
