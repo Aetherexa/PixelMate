@@ -955,10 +955,30 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
       z-index:4; user-select:none; will-change:left,bottom;
     }
     .sprite {
-      font-size:52px; line-height:1; transform-origin:50% 85%;
+      width:86px; height:70px; line-height:1; transform-origin:50% 85%;
       filter:drop-shadow(0 8px 6px rgba(0,0,0,.28));
       animation: idleBob 2.2s ease-in-out infinite;
+      display:grid; place-items:center;
     }
+    .sprite svg { width:86px; height:70px; overflow:visible; }
+    .sprite .tail { transform-box:fill-box; transform-origin:10% 55%; animation:tailWag 1.05s ease-in-out infinite; }
+    .sprite .ear { transform-box:fill-box; transform-origin:50% 15%; animation:earTwitch 4.6s ease-in-out infinite; }
+    .sprite .head { transform-box:fill-box; transform-origin:50% 75%; animation:headBob 2.2s ease-in-out infinite; }
+    .sprite .leg { transform-box:fill-box; transform-origin:50% 5%; }
+    .sprite .front-a,.sprite .rear-b { animation-delay:-.18s; }
+    .sprite .front-b,.sprite .rear-a { animation-delay:0s; }
+    .companion.moving .sprite .leg,
+    .companion.zoomies .sprite .leg { animation:legWalk .36s ease-in-out infinite alternate; }
+    .companion.moving .sprite .tail,
+    .companion.zoomies .sprite .tail,
+    .companion.excited .sprite .tail { animation:tailWag .34s ease-in-out infinite; }
+    .companion.sleeping .sprite .leg { animation:none; }
+    .companion.sleeping .sprite .tail { animation:tailSleep 2.4s ease-in-out infinite; }
+    @keyframes legWalk { from{transform:rotate(-20deg)} to{transform:rotate(20deg)} }
+    @keyframes tailWag { 0%,100%{transform:rotate(-12deg)} 50%{transform:rotate(18deg)} }
+    @keyframes tailSleep { 0%,100%{transform:rotate(-4deg)} 50%{transform:rotate(4deg)} }
+    @keyframes earTwitch { 0%,86%,100%{transform:rotate(0)} 90%{transform:rotate(-9deg)} 94%{transform:rotate(7deg)} }
+    @keyframes headBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-1.5px)} }
     .companion.moving .sprite { animation: walk .36s ease-in-out infinite; }
     .companion.excited .sprite { animation: excited .46s ease-in-out 3; }
     .companion.sleeping .sprite { animation: breathe 2.2s ease-in-out infinite; filter:grayscale(.08) drop-shadow(0 7px 6px rgba(0,0,0,.25)); }
@@ -1119,7 +1139,13 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     const habitatCompanion = document.getElementById("habitatCompanion");
     const habitatLabel = document.getElementById("habitatLabel");
 
-    const glyphs = { smiley: "🙂", cat: "🐱", dog: "🐶", horse: "🐴" };
+    const companionArt = {
+      dog: '<svg viewBox="0 0 120 88" aria-hidden="true"><g class="tail"><path d="M20 47 C4 39 5 25 16 23 C13 31 17 36 27 37" fill="#9b5d35" stroke="#5a341f" stroke-width="3" stroke-linecap="round"/></g><g class="body"><ellipse cx="58" cy="50" rx="34" ry="20" fill="#d9955f"/><ellipse cx="58" cy="54" rx="22" ry="14" fill="#f1c59e"/></g><g class="leg rear-a"><path d="M38 59 h10 v20 q0 5 -5 5 h-8 q-4 0 -2-4 l5-21Z" fill="#a8653d"/></g><g class="leg rear-b"><path d="M50 61 h10 v18 q0 5 -5 5 h-8 q-4 0 -2-4 l5-19Z" fill="#c17c50"/></g><g class="leg front-a"><path d="M74 60 h10 v20 q0 5 -5 5 h-8 q-4 0 -2-4 l5-21Z" fill="#b66d43"/></g><g class="leg front-b"><path d="M84 57 h10 v22 q0 5 -5 5 h-8 q-4 0 -2-4 l5-22Z" fill="#d58a56"/></g><g class="head"><circle cx="90" cy="37" r="22" fill="#d9955f"/><g class="ear"><path d="M76 24 Q66 16 63 30 Q65 43 77 45Z" fill="#7f4930"/><path d="M101 23 Q114 15 113 31 Q110 43 101 45Z" fill="#7f4930"/></g><ellipse cx="94" cy="43" rx="12" ry="9" fill="#f4d2b4"/><circle cx="84" cy="34" r="2.8" fill="#2b211d"/><circle cx="100" cy="34" r="2.8" fill="#2b211d"/><ellipse cx="94" cy="41" rx="4" ry="3.2" fill="#2b211d"/><path d="M92 46 q3 5 7 0" fill="none" stroke="#6b2d24" stroke-width="2" stroke-linecap="round"/><path d="M94 48 q1 7 5 8 q3-3 1-7Z" fill="#e9677b"/></g><rect x="74" y="52" width="19" height="4" rx="2" fill="#d33f49"/><circle cx="84" cy="58" r="3" fill="#f2c14e"/></svg>',
+      cat: '<svg viewBox="0 0 120 88" aria-hidden="true"><g class="tail"><path d="M22 53 C2 55 4 30 18 28 C11 39 20 42 31 41" fill="none" stroke="#6f7782" stroke-width="8" stroke-linecap="round"/></g><ellipse cx="57" cy="51" rx="33" ry="19" fill="#8c949f"/><path d="M34 44 q12-14 24 0" fill="#727b86" opacity=".45"/><g class="leg rear-a"><path d="M37 60 h9 v19 q0 5-5 5h-7q-4 0-2-4Z" fill="#737c86"/></g><g class="leg rear-b"><path d="M49 61 h9 v18 q0 5-5 5h-7q-4 0-2-4Z" fill="#8b949e"/></g><g class="leg front-a"><path d="M73 59 h9 v20 q0 5-5 5h-7q-4 0-2-4Z" fill="#737c86"/></g><g class="leg front-b"><path d="M83 57 h9 v22 q0 5-5 5h-7q-4 0-2-4Z" fill="#919aa4"/></g><g class="head"><path d="M75 22 l7-13 8 12 q9-3 17 2 l8-12 3 18 q3 6 1 13 q-3 18-24 18 q-22 0-25-18 q-2-11 5-20Z" fill="#8c949f"/><path class="ear" d="M78 22 l5-9 5 10Z" fill="#d7a2ac"/><path class="ear" d="M105 23 l8-9 1 12Z" fill="#d7a2ac"/><circle cx="87" cy="35" r="3" fill="#213547"/><circle cx="104" cy="35" r="3" fill="#213547"/><path d="M96 40 l-4 3 4 2 4-2Z" fill="#d78393"/><path d="M78 43 h12 M102 43 h12 M79 47 h11 M103 47 h10" stroke="#39424c" stroke-width="1.3" stroke-linecap="round"/><path d="M93 47 q3 4 6 0" fill="none" stroke="#39424c" stroke-width="1.5"/></g></svg>',
+      horse: '<svg viewBox="0 0 120 88" aria-hidden="true"><g class="tail"><path d="M21 42 q-18 5-12 25 q8-7 17-12" fill="none" stroke="#3a2a25" stroke-width="8" stroke-linecap="round"/></g><ellipse cx="57" cy="47" rx="35" ry="19" fill="#8a5a3c"/><path d="M74 38 q10-18 21-14 l7 5 q6 5 5 15 v11 h-20 l-7-12Z" fill="#9d6a47"/><path d="M89 25 q-2-9 3-14 l5 13 M99 27 q2-10 8-13 l-1 15" fill="#3b2c28"/><path class="ear" d="M90 21 l3-8 4 10Z" fill="#a97958"/><path class="ear" d="M103 23 l5-8 1 11Z" fill="#a97958"/><path d="M82 30 q4-10 13-11 q-8 6-6 16Z" fill="#3a2b25"/><circle cx="99" cy="36" r="2.7" fill="#171717"/><ellipse cx="103" cy="48" rx="7" ry="5" fill="#c89570"/><circle cx="106" cy="48" r="1.3" fill="#47332c"/><g class="leg rear-a"><path d="M34 58 h8 l-1 24 h-9Z" fill="#6f452f"/><rect x="31" y="80" width="11" height="5" rx="2" fill="#2f2623"/></g><g class="leg rear-b"><path d="M48 59 h8 l1 23h-9Z" fill="#825238"/><rect x="47" y="80" width="11" height="5" rx="2" fill="#2f2623"/></g><g class="leg front-a"><path d="M72 57 h8 l2 25h-9Z" fill="#6f452f"/><rect x="72" y="80" width="11" height="5" rx="2" fill="#2f2623"/></g><g class="leg front-b"><path d="M84 55 h8 l3 27h-9Z" fill="#84563b"/><rect x="85" y="80" width="11" height="5" rx="2" fill="#2f2623"/></g></svg>',
+      smiley: '<svg viewBox="0 0 120 88" aria-hidden="true"><circle cx="61" cy="42" r="24" fill="#f8c64f" stroke="#d99c22" stroke-width="3"/><circle cx="52" cy="36" r="3" fill="#253143"/><circle cx="70" cy="36" r="3" fill="#253143"/><path d="M50 47 q11 11 22 0" fill="none" stroke="#7a4723" stroke-width="3" stroke-linecap="round"/><g class="leg rear-a"><path d="M50 63 q-5 12-8 18" stroke="#d99c22" stroke-width="5" stroke-linecap="round"/></g><g class="leg front-a"><path d="M70 63 q5 12 8 18" stroke="#d99c22" stroke-width="5" stroke-linecap="round"/></g><path d="M38 45 q-12 3-15 11 M84 45 q12 3 15 11" fill="none" stroke="#d99c22" stroke-width="5" stroke-linecap="round"/></svg>'
+    };
+    const companionGlyphs = { smiley: "🙂", cat: "🐱", dog: "🐶", horse: "🐴" };
     const companionNames = { smiley: "Smiley", cat: "Cat", dog: "Dog", horse: "Horse" };
     const backgroundNames = {
       livingRoom: "Living Room",
@@ -1173,9 +1199,9 @@ export class RuntimeCompanionHost implements vscode.Disposable, vscode.WebviewVi
     }
 
     function setCompanion(type) {
-      currentCompanion = glyphs[type] ? type : "smiley";
-      sprite.textContent = glyphs[currentCompanion];
-      habitatCompanion.textContent = glyphs[currentCompanion];
+      currentCompanion = companionArt[type] ? type : "smiley";
+      sprite.innerHTML = companionArt[currentCompanion];
+      habitatCompanion.textContent = companionGlyphs[currentCompanion];
       sprite.setAttribute("aria-label", "PixelMate " + companionNames[currentCompanion]);
       companion.dataset.kind = currentCompanion;
       updateLabel();
