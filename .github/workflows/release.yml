@@ -93,7 +93,7 @@ jobs:
       - name: Package VSIX
         run: pnpm extension:package
       - name: Upload VSIX
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pixelmate-release-vsix
           path: apps/runtime-vscode/*.vsix
